@@ -1,6 +1,6 @@
 # USDM → P21 Workbench (local POC)
 
-Runs on your PC: `python usdm_p21_app.py` (or double-click `run_workbench.bat`). Python 3.8+, standard library only.
+Runs on your PC: `python usdm_p21_app.py` – or double-click `run_workbench.bat` (Windows) / run `./run_workbench.sh` (macOS/Linux; `chmod +x run_workbench.sh` once). Python 3.8+, standard library only.
 Opens http://127.0.0.1:8765 (local only).
 
 **Steps:** 1 Load USDM → 2 Standard & terminology (+ optional form library) → 3 Map specializations → 4 Generate & export → 5 Report dashboard (KPIs, coverage charts, findings by severity; Print/PDF).

@@ -35,6 +35,7 @@
 cd app
 python usdm_p21_app.py            # opens http://127.0.0.1:8765
 # Windows: double-click run_workbench.bat
+# macOS/Linux: ./run_workbench.sh   (first time: chmod +x run_workbench.sh)
 ```
 
 - **Online:** step 2 → enter your P21E root URL (e.g. `https://my-company.pinnacle21.com`) and a *User API Key* (P21E › Your Profile › API Key › Add Key). Or set `P21_API_KEY` and pass `--base-url`.
@@ -79,7 +80,8 @@ The API key never reaches the browser; the server binds to `127.0.0.1` only.
 USDM_P21/
 ├── app/                              # Local workbench (recommended)
 │   ├── usdm_p21_app.py               #   stdlib HTTP server + P21 API proxy + master builder
-│   ├── run_workbench.bat
+│   ├── run_workbench.bat             #   Windows launcher
+│   ├── run_workbench.sh              #   macOS / Linux launcher
 │   ├── static/index.html             #   UI (5 steps + dashboard)
 │   ├── static/engine.js              #   matching, generation, reconciliation, XLSX writer
 │   ├── data/cosmos_catalogue.json    #   local COSMoS specialization table (98 SDTM / 309 CRF)
