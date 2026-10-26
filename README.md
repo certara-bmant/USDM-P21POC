@@ -114,6 +114,8 @@ USDM_P21/
 | Used only by shell variables that are **not** Record Qualifiers (e.g. `LBNRIND`) | Full codelist |
 | Extensible, used only by shell **Record Qualifier** variables (e.g. `MBMETHOD`, `ARMNRS`) | Deferred – empty, flagged *to be populated* |
 
+**Ordering** – datasets by SDTMIG class (Trial Design, Special Purpose, Interventions, Events, Findings, Findings About, Relationship), then alphabetically. Variables follow the master standard's `order`; variables the P21 export leaves unordered (e.g. `STUDYID`, `--SEQ`, `LBORRES` in SDTMIG 3.4) are placed by *location*: fixed anchors STUDYID/DOMAIN/USUBJID, otherwise next to the same variable's neighbour in other domains of the same class (`LBORRES` after `LBBODSYS` because `VSORRES` follows `VSBODSYS`). Orders are renumbered 1..n per dataset (`customAttribute.sourceOrder` / `orderSource` keep the provenance). VLM rows follow dataset → variable order; codelists are alphabetical and terms keep CT order.
+
 **CRF form spec** – per activity: library form (tier 1) → COSMoS CRF specialization written directly (tier 3); BCs not on the library form fall back to COSMoS items. When a user picks a CRF specialization built for a *different* SDTM specialization of the same BC (e.g. `SODIUMBLD` CRF for `SODIUMSERPL`), items are reconciled to the SDTM side (specimen, value lists, data type) and items without a counterpart are flagged for review.
 
 ## USDM extensions

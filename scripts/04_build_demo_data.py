@@ -53,8 +53,10 @@ doms = sorted({v['d'] for v in sdtm.values()} | {v['d'] for v in crf.values()} |
 dsets = {d['dataset']: {'id': d['internalId'], 'label': d['label'], 'class': d['class'], 'structure': d['structure'], 'keys': d['keyVariables'],
                         'repeating': d['repeating'], 'ref': d['referenceData']} for d in std['datasets'] if d['dataset'] in doms}
 VC = ['variable', 'internalId', 'order', 'label', 'dataType', 'length', 'core', 'codelist', 'origin', 'role']
-vars_ = {d: [[v[c] for c in VC] for v in std['variables'] if v['dataset'] == d] for d in dsets}
-used_cl = {r[2] for s in sdtm.values() for r in s['rows'] if r[2]} | {v[7] for vs in vars_.values() for v in vs if v[7]} | \
+vars_ = collections.defaultdict(list)
+for v in std['variables']: vars_[v['dataset']].append([v[c] for c in VC])   # all domains (order inference)
+classes = {d['dataset']: d['class'] for d in std['datasets']}
+used_cl = {r[2] for s in sdtm.values() for r in s['rows'] if r[2]} | {v[7] for d_, vs in vars_.items() if d_ in dsets for v in vs if v[7]} | \
           {i[11] for c in crf.values() for i in c['items'] if i[11]} | {'TSPARMCD', 'TSPARM', 'UNIT', 'ROUTE', 'FRM', 'FREQ', 'TPHASE', 'STYPE', 'INTMODEL', 'TBLIND',
                                                                      'TTYPE', 'TINDTP', 'INTTYPE', 'SEXPOP', 'NY', 'TCNTRL', 'IECAT', 'EPOCH', 'ARMNULRS'}
 referenced = collections.defaultdict(set)
@@ -78,7 +80,7 @@ for c in term['codelists']:
     terms[c['id']] = [[t['internalId'], t['term'], t['decodedValue'], t['nciCode']] for t in keep]
 data = {'std': {'specId': std['standard']['specId'], 'name': std['standard']['name'], 'version': std['standard']['version']},
         'ct': {'specId': term['terminology']['specId'], 'name': term['terminology']['name'], 'version': term['terminology']['version']},
-        'SCOLS': SCOLS, 'CCOLS': CCOLS, 'VC': VC, 'sdtm': sdtm, 'crf': crf, 'datasets': dsets, 'vars': vars_, 'codelists': cls, 'terms': terms}
+        'SCOLS': SCOLS, 'CCOLS': CCOLS, 'VC': VC, 'sdtm': sdtm, 'crf': crf, 'datasets': dsets, 'classes': classes, 'vars': vars_, 'codelists': cls, 'terms': terms}
 s = json.dumps(data, separators=(',', ':'))
 open(f'{OUT}/demo_data.json', 'w').write(s)
 print('no-ext USDM written; data blob', len(s) // 1024, 'KB;', len(sdtm), 'sdtm specs', len(crf), 'crf specs', len(cls), 'codelists', sum(map(len, terms.values())), 'terms')

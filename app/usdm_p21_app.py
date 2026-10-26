@@ -122,8 +122,8 @@ def build_master(std, term):
              for d in std.get('datasets', []) if d['dataset'] in doms}
     VC = ['variable', 'internalId', 'order', 'label', 'dataType', 'length', 'core', 'codelist', 'origin', 'role']
     vars_ = collections.defaultdict(list)
-    for v in std.get('variables', []):
-        if v.get('dataset') in dsets: vars_[v['dataset']].append([v.get(c) for c in VC])
+    for v in std.get('variables', []):   # all domains: out-of-scope ones are only used to infer variable order
+        vars_[v['dataset']].append([v.get(c) for c in VC])
     referenced = collections.defaultdict(set)
     for s in sdtm.values():
         for r in s['rows']:
@@ -133,7 +133,7 @@ def build_master(std, term):
         for i in c['items']:
             if i[jCL]:
                 for x in (i[jVL].split(';') if i[jVL] else [i[jPP]]): referenced[i[jCL]].add(x)
-    used = set(referenced) | {v[7] for vs in vars_.values() for v in vs if v[7]} | {
+    used = set(referenced) | {v[7] for d_, vs in vars_.items() if d_ in dsets for v in vs if v[7]} | {
         'TSPARMCD', 'TSPARM', 'UNIT', 'ROUTE', 'FRM', 'FREQ', 'TPHASE', 'STYPE', 'INTMODEL', 'TBLIND', 'TTYPE', 'TINDTP', 'INTTYPE', 'SEXPOP', 'NY', 'TCNTRL', 'IECAT', 'EPOCH'}
     tby = collections.defaultdict(list)
     for t in term.get('terms', []): tby[t.get('codelist')].append(t)
@@ -147,7 +147,7 @@ def build_master(std, term):
         terms[c['id']] = [[t.get('internalId'), t.get('term'), t.get('decodedValue'), t.get('nciCode')] for t in keep]
     return {'std': {'specId': sh.get('specId'), 'name': sh.get('name'), 'version': sh.get('version'), 'type': sh.get('type')},
             'ct': {'specId': th.get('specId'), 'name': th.get('name'), 'version': th.get('version')},
-            'datasets': dsets, 'vars': vars_, 'VC': VC, 'codelists': cls, 'terms': terms, 'ctTotalTerms': len(term.get('terms', []))}
+            'datasets': dsets, 'classes': {d['dataset']: d.get('class') for d in std.get('datasets', [])}, 'vars': vars_, 'VC': VC, 'codelists': cls, 'terms': terms, 'ctTotalTerms': len(term.get('terms', []))}
 
 def compact_forms(fx):
     """Keep the parts of a P21 form spec export the workbench uses. The export uses 'forms' both for the spec header

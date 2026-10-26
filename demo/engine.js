@@ -203,6 +203,29 @@ Engine.prototype.versionOk = function (specId) {
   return true;
 };
 
+/* variable order: master standard order; for variables the export leaves unordered, infer position from where the same
+   variable sits relative to its neighbours in other domains of the same class (anchors: STUDYID 1, DOMAIN 2, USUBJID 3) */
+Engine.prototype.effectiveOrder = function (dom, vn) {
+  const ANCH = { STUDYID: 1, DOMAIN: 2, USUBJID: 3 }, gen = (d, n) => n.startsWith(d) && n.length > d.length ? '--' + n.slice(d.length) : n;
+  const cls = d => (this.D.classes || {})[d] || (this.D.datasets[d] || {}).class;
+  this._known = this._known || {};
+  const known = d => { if (!this._known[d]) { const k = new Map(); Object.values(this.mVar[d] || {}).forEach(v => { if (v.order !== '' && v.order != null) k.set(gen(d, v.variable), +v.order); });
+    for (const a in ANCH) if ((this.mVar[d] || {})[a] && !k.has(a)) k.set(a, ANCH[a]); this._known[d] = k; } return this._known[d]; };
+  const k = known(dom), sfx = gen(dom, vn), mv = (this.mVar[dom] || {})[vn] || {};
+  if (k.has(sfx)) return [k.get(sfx), mv.order !== '' && mv.order != null ? 'standard' : 'anchor'];
+  const c = [];
+  for (const d2 in this.mVar) {
+    if (d2 === dom || cls(d2) !== cls(dom)) continue;
+    const lst = [...known(d2).entries()].sort((a, b) => a[1] - b[1]), idx = lst.findIndex(x => x[0] === sfx); if (idx < 0) continue;
+    let got = null;
+    for (let j = idx - 1; j >= 0 && got == null; j--) if (k.has(lst[j][0])) got = k.get(lst[j][0]) + 0.5;
+    for (let j = idx + 1; j < lst.length && got == null; j++) if (k.has(lst[j][0])) got = k.get(lst[j][0]) - 0.5;
+    if (got != null) c.push(got);
+  }
+  if (c.length) { c.sort((a, b) => a - b); return [c[Math.floor(c.length / 2)], 'inferred from location in same-class domains']; }
+  return [/Timing/.test(mv.role || '') ? 9000 : 5000, 'appended'];
+};
+
 /* ---------------------------------------------------------------- generation */
 Engine.prototype.generate = function (M, sel, opts) {
   opts = Object.assign({ mandatoryOnly: true, vlm: true }, opts || {});
@@ -404,6 +427,25 @@ Engine.prototype.generate = function (M, sel, opts) {
     chosen.forEach(([t, ext], i) => terms.push({ internalId: null, order: String(i + 1), codelist: cl, term: t.term, decodedValue: t.decodedValue, nciCode: t.nciCode,
       customAttribute: prov({ sourceSpecId: D.ct.specId, sourceInternalId: t.internalId, extended: ext }) }));
   }
+  // ---- ordering: SDTMIG class order for datasets; standard variable order, gaps placed by location in same-class domains
+  const CLASS_ORDER = ['TRIAL DESIGN', 'SPECIAL PURPOSE', 'INTERVENTIONS', 'EVENTS', 'FINDINGS', 'FINDINGS ABOUT', 'RELATIONSHIP', 'STUDY REFERENCE'];
+  const ci = c => { const i = CLASS_ORDER.indexOf(c); return i < 0 ? 99 : i; };
+  datasets.sort((a, b) => ci(a.class) - ci(b.class) || (a.dataset < b.dataset ? -1 : 1));
+  const dsRank = {}; datasets.forEach((x, i) => dsRank[x.dataset] = i);
+  variables.forEach(v => { const [o, how] = this.effectiveOrder(v.dataset, v.variable); v._o = o; v.customAttribute.sourceOrder = v.order; v.customAttribute.orderSource = how; });
+  variables.sort((a, b) => (dsRank[a.dataset] ?? 99) - (dsRank[b.dataset] ?? 99) || a._o - b._o);
+  const varRank = {}, nIn = {};
+  variables.forEach(v => { nIn[v.dataset] = (nIn[v.dataset] || 0) + 1; v.order = String(nIn[v.dataset]); varRank[v.dataset + '.' + v.variable] = nIn[v.dataset]; delete v._o; });
+  const vl2 = valueLevel.map((x, i) => [x, i]).sort((a, b) => (dsRank[a[0].dataset] ?? 99) - (dsRank[b[0].dataset] ?? 99) ||
+    (varRank[a[0].dataset + '.' + a[0].variable] ?? 999) - (varRank[b[0].dataset + '.' + b[0].variable] ?? 999) || a[1] - b[1]).map(x => x[0]);
+  valueLevel.length = 0; vl2.forEach((x, i) => { x.order = String(i + 1); valueLevel.push(x); });
+  codelists.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+  const clRank = {}, clParent = {}; codelists.forEach((c, i) => { clRank[c.id] = i; clParent[c.id] = c.customAttribute.parentCodelist; });
+  const mtRank = {}; for (const cl in D.terms) D.terms[cl].forEach((t, i) => mtRank[cl + '|' + t[1]] = i);
+  const t2 = terms.map((t, i) => [t, i]).sort((a, b) => (clRank[a[0].codelist] ?? 9999) - (clRank[b[0].codelist] ?? 9999) ||
+    (mtRank[clParent[a[0].codelist] + '|' + a[0].term] ?? 1e9) - (mtRank[clParent[b[0].codelist] + '|' + b[0].term] ?? 1e9) || a[1] - b[1]).map(x => x[0]);
+  terms.length = 0; const tc = {}; t2.forEach(t => { tc[t.codelist] = (tc[t.codelist] || 0) + 1; t.order = String(tc[t.codelist]); terms.push(t); });
+
   const define = { standard: { name: studyid + ' SDTM', baseName: D.std.name, baseVersion: D.std.version, terminology: D.ct.name + ' ' + D.ct.version,
     customAttribute: prov({ sourceStandardSpecId: D.std.specId, sourceTerminologySpecId: D.ct.specId, options: opts }) }, datasets, variables, value_level: valueLevel, codelists, terms };
 

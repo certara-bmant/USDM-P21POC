@@ -339,6 +339,54 @@ for cl, d in demand.items():
         nt['customAttribute'] = prov(sourceSpecId=CT_ID, sourceInternalId=t['internalId'], extended=extended)
         terms.append(nt)
 
+# ------------------------------------------------------------------ ordering
+# Datasets: SDTMIG class order, then alphabetical. Variables: the master standard's order; variables the P21 export
+# leaves without an order are placed by location - next to the same variable's neighbour in other domains of the
+# same class (e.g. LBORRES after LBBODSYS because VSORRES follows VSBODSYS) - with fixed anchors for STUDYID/DOMAIN/USUBJID.
+CLASS_ORDER = ['TRIAL DESIGN', 'SPECIAL PURPOSE', 'INTERVENTIONS', 'EVENTS', 'FINDINGS', 'FINDINGS ABOUT', 'RELATIONSHIP', 'STUDY REFERENCE']
+ANCHORS = {'STUDYID': 1.0, 'DOMAIN': 2.0, 'USUBJID': 3.0}
+_cls = {d['dataset']: d['class'] for d in std['datasets']}
+def _gen(dom, n): return '--' + n[len(dom):] if n.startswith(dom) and len(n) > len(dom) else n
+_known_cache = {}
+def _known(dom):
+    if dom not in _known_cache:
+        k = {_gen(dom, v['variable']): float(v['order']) for v in m_var[dom].values() if v['order']}
+        for a_, o_ in ANCHORS.items():
+            if a_ in m_var[dom] and a_ not in k: k[a_] = o_
+        _known_cache[dom] = k
+    return _known_cache[dom]
+def effective_order(dom, vn):
+    k = _known(dom); sfx = _gen(dom, vn)
+    if sfx in k: return k[sfx], 'standard' if (m_var[dom].get(vn) or {}).get('order') else 'anchor'
+    c = []
+    for d2 in m_var:
+        if d2 == dom or _cls.get(d2) != _cls.get(dom): continue
+        lst = sorted(_known(d2).items(), key=lambda x: x[1]); idx = next((i for i, x in enumerate(lst) if x[0] == sfx), None)
+        if idx is None: continue
+        got = next((k[lst[j][0]] + 0.5 for j in range(idx - 1, -1, -1) if lst[j][0] in k), None)
+        if got is None: got = next((k[lst[j][0]] - 0.5 for j in range(idx + 1, len(lst)) if lst[j][0] in k), None)
+        if got is not None: c.append(got)
+    if c: c.sort(); return c[len(c) // 2], 'inferred from location in same-class domains'
+    return (9000.0 if 'Timing' in ((m_var[dom].get(vn) or {}).get('role') or '') else 5000.0), 'appended'
+datasets.sort(key=lambda d: (CLASS_ORDER.index(d['class']) if d['class'] in CLASS_ORDER else 99, d['dataset']))
+ds_rank = {d['dataset']: i for i, d in enumerate(datasets)}
+for v in variables:
+    o, how = effective_order(v['dataset'], v['variable']); v['_o'] = o
+    v['customAttribute'].update(sourceOrder=v['order'], orderSource=how)
+variables.sort(key=lambda v: (ds_rank.get(v['dataset'], 99), v['_o']))
+var_rank, n_in = {}, collections.Counter()
+for v in variables:
+    n_in[v['dataset']] += 1; v['order'] = str(n_in[v['dataset']]); var_rank[(v['dataset'], v['variable'])] = n_in[v['dataset']]; del v['_o']
+value_level = [x for _, x in sorted(enumerate(value_level), key=lambda t: (ds_rank.get(t[1]['dataset'], 99), var_rank.get((t[1]['dataset'], t[1]['variable']), 999), t[0]))]
+for i, x in enumerate(value_level, 1): x['order'] = str(i)
+codelists.sort(key=lambda c: c['id'])
+cl_rank = {c['id']: i for i, c in enumerate(codelists)}
+_mt_rank = {(t['codelist'], t['term']): i for i, t in enumerate(term['terms'])}
+terms = [t for _, t in sorted(enumerate(terms), key=lambda x: (cl_rank.get(x[1]['codelist'], 9999),
+                                                             _mt_rank.get((codelists[cl_rank[x[1]['codelist']]]['customAttribute']['parentCodelist'], x[1]['term']), 10**9), x[0]))]
+_c = collections.Counter()
+for t in terms: _c[t['codelist']] += 1; t['order'] = str(_c[t['codelist']])
+
 define = {
     'message': 'generated', 'datetime': NOW,
     'standard': {'specId': None, 'name': f'{studyid} SDTM', 'version': sv['versionIdentifier'], 'description': f'Study SDTM define for {studyid} generated from USDM',
