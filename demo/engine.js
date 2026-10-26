@@ -12,6 +12,7 @@ function Engine(D) {
   const zip = (cols, row) => { const o = {}; cols.forEach((c, i) => o[c] = row[i] == null ? '' : row[i]); return o; };
   this.sdtmRows = {}; for (const k in D.sdtm) this.sdtmRows[k] = D.sdtm[k].rows.map(r => zip(D.SCOLS, r));
   this.crfItems = {}; for (const k in D.crf) this.crfItems[k] = D.crf[k].items.map(r => zip(D.CCOLS, r));
+  this.allTopicCodes = new Set(); for (const k in this.sdtmRows) { const t = this.sdtmRows[k].find(r => r.role === 'Topic' && r.assigned_value); if (t) this.allTopicCodes.add(t.assigned_value.toUpperCase()); }
   this.mVar = {}; for (const d in D.vars) { this.mVar[d] = {}; D.vars[d].forEach(r => { const v = zip(D.VC, r); this.mVar[d][v.variable] = v; }); }
   this.termBy = {}; this.termByCode = {};
   for (const cl in D.terms) D.terms[cl].forEach(t => { const o = { internalId: t[0], term: t[1], decodedValue: t[2], nciCode: t[3], codelist: cl };
@@ -41,15 +42,22 @@ Engine.prototype.parse = function (u) {
   const tl = (design.scheduleTimelines || []).find(t => t.mainTimeline) || (design.scheduleTimelines || [])[0];
   const encById = {}; (design.encounters || []).forEach(e => encById[e.id] = e);
   const epById = {}; (design.epochs || []).forEach(e => epById[e.id] = e);
-  let sais = tl ? (tl.instances || []).filter(i => i.instanceType === 'ScheduledActivityInstance') : [];
-  if (tl && tl.entryId && sais.some(s => s.defaultConditionId)) { // follow the default-condition chain from entry
-    const by = {}; sais.forEach(s => by[s.id] = s); const out = [], seen = new Set(); let cur = by[tl.entryId];
-    while (cur && !seen.has(cur.id)) { out.push(cur); seen.add(cur.id); cur = by[cur.defaultConditionId]; }
-    sais.forEach(s => { if (!seen.has(s.id)) out.push(s); }); sais = out;
-  }
-  const timingByInst = {}; (tl ? tl.timings || [] : []).forEach(t => timingByInst[t.relativeFromScheduledInstanceId] = t);
+  const orderSais = t => { let ss = (t.instances || []).filter(i => i.instanceType === 'ScheduledActivityInstance');
+    if (t.entryId && ss.some(x => x.defaultConditionId)) { // follow the default-condition chain from entry
+      const by = {}; ss.forEach(x => by[x.id] = x); const out = [], seen = new Set(); let cur = by[t.entryId];
+      while (cur && !seen.has(cur.id)) { out.push(cur); seen.add(cur.id); cur = by[cur.defaultConditionId]; }
+      ss.forEach(x => { if (!seen.has(x.id)) out.push(x); }); ss = out; }
+    return ss; };
+  const timingMap = t => { const m = {}; (t.timings || []).forEach(x => m[x.relativeFromScheduledInstanceId] = x); return m; };
+  const sais = tl ? orderSais(tl) : [];
+  const timingByInst = tl ? timingMap(tl) : {};
+  // sub-timelines: every non-main timeline, with what triggers it (main SAIs / activities pointing at it)
+  const allSais = (design.scheduleTimelines || []).flatMap(t => (t.instances || []).map(i => [i, t]));
+  const subTimelines = (design.scheduleTimelines || []).filter(t => t !== tl).map(t => ({ tl: t, sais: orderSais(t), timingByInst: timingMap(t),
+    triggers: [...allSais.filter(([i]) => i.timelineId === t.id).map(([i, p]) => ({ kind: 'instance', name: (encById[i.encounterId] || {}).name || i.label || i.name, timeline: p.name })),
+               ...(design.activities || []).filter(a => a.timelineId === t.id).map(a => ({ kind: 'activity', name: a.label || a.name }))] }));
   const bcActs = {}; activities.forEach(x => x.bcIds.forEach(b => (bcActs[b] = bcActs[b] || []).push(x.a)));
-  return { u, study, sv, design, activities, bcById, surById, tl, sais, encById, epById, timingByInst, bcActs };
+  return { u, study, sv, design, activities, bcById, surById, tl, sais, encById, epById, timingByInst, subTimelines, bcActs };
 };
 
 /* ---------------------------------------------------------------- candidates & suggestions */
@@ -67,6 +75,7 @@ Engine.prototype.sdtmCandidates = function (bc, acts) {
   const out = [];
   for (const k in D.sdtm) {
     const s = D.sdtm[k]; if (s.bc !== code) continue;
+    if (!this.versionOk(k)) continue;
     let score = 10; const why = [];
     if ((s.name || '').toLowerCase() === (bc.name || '').toLowerCase()) { score += 100; why.push('name match'); }
     const sp = specimenOf(s.name);
@@ -102,6 +111,9 @@ Engine.prototype.readSelections = function (M) {
   for (const id in M.bcById) { const b = M.bcById[id], s = this.extOf(b, SD_URL), c = this.extOf(b, CRF_URL);
     if (s || c) sel[id] = { sdtm: s || '', crf: c || '', confirmed: true, source: 'extension' }; }
   return sel;
+};
+Engine.prototype.readFormSources = function (M) {
+  const out = {}; M.activities.forEach(x => { const e = (x.a.extensionAttributes || []).find(e => e.url === P21 + '/form-source'); if (e) out[x.a.id] = e.valueString; }); return out;
 };
 Engine.prototype.suggest = function (M, sel, overwrite) {
   sel = sel || {};
@@ -143,6 +155,52 @@ Engine.prototype.reconcileItem = function (s, c, r0) {
     out.base = s;
   } else if (nativeVars.has(tgt)) { out.review = true; out.note = `Review: ${tgt} is not part of SDTM specialization ${s} (item comes from CRF specialization ${c})`; }
   return out;
+};
+
+/* ---------------------------------------------------------------- form library (tier 1) */
+Engine.prototype.topicCode = function (spec) {
+  if (!spec || !this.sdtmRows[spec]) return null; const t = this.sdtmRows[spec].find(r => r.role === 'Topic' && r.assigned_value); return t ? t.assigned_value.toUpperCase() : null;
+};
+Engine.prototype.qTokens = function (q) {
+  return new Set([q.id, q.sdtmTarget, q.questionText, q.section].filter(Boolean).join(' ').toUpperCase().split(/[^A-Z0-9]+/).filter(Boolean));
+};
+/* explicit test codes a library question is about: "...TESTCD = X" in the SDTM target, or an ID like X_VSORRES */
+Engine.prototype.qTestCodes = function (q) {
+  const out = new Set(), t = (q.sdtmTarget || '').toUpperCase();
+  for (const m of t.matchAll(/[A-Z]{2}TESTCD\s*(?:=|EQ|IN)\s*\(?\s*"?([A-Z0-9_]+)/g)) out.add(m[1]);
+  const m2 = String(q.id || '').toUpperCase().match(/^([A-Z0-9]+)_[A-Z]{2}(ORRES|ORRESU|STAT|REASND|PERF|ND)/); if (m2) out.add(m2[1]);
+  return out;
+};
+Engine.prototype.setFormLibrary = function (lib, name) {
+  if (!lib) { this.lib = null; return; }
+  const L = { name: name || (lib.header && lib.header.name) || 'Form library', formById: {}, questionsByForm: {}, codelistById: {}, termsByCl: {} };
+  (lib.forms || []).forEach(f => { L.formById[f.id] = f; L.questionsByForm[f.id] = []; });
+  (lib.questions || []).forEach(q => { (L.questionsByForm[q.form] = L.questionsByForm[q.form] || []).push(q); if (!L.formById[q.form]) L.formById[q.form] = { id: q.form, name: q.form }; });
+  Object.values(L.questionsByForm).forEach(a => a.sort((x, y) => (+x.order || 0) - (+y.order || 0)));
+  (lib.codelists || []).forEach(c => L.codelistById[c.id] = c);
+  (lib.terms || []).forEach(t => (L.termsByCl[t.codelist] = L.termsByCl[t.codelist] || []).push(t));
+  this.lib = L;
+};
+/* rank library forms for an activity by how many of its BCs (topic test codes) the form's questions mention */
+Engine.prototype.libraryCandidates = function (M, actX, sel) {
+  if (!this.lib) return [];
+  const codes = actX.bcIds.map(id => this.topicCode((sel[id] || {}).sdtm)).filter(Boolean);
+  if (!codes.length) return [];
+  const out = [];
+  for (const fid in this.lib.questionsByForm) {
+    const toks = new Set(); this.lib.questionsByForm[fid].forEach(q => this.qTokens(q).forEach(t => toks.add(t)));
+    const hit = codes.filter(c => toks.has(c)).length;
+    if (hit) out.push({ id: fid, name: this.lib.formById[fid].name || fid, hit, of: codes.length });
+  }
+  return out.sort((a, b) => b.hit - a.hit || a.id.localeCompare(b.id));
+};
+Engine.prototype.versionOk = function (specId) {
+  const s = this.D.sdtm[specId], std = this.D.std || {};
+  if (!s || !s.v || !/SDTMIG/i.test(std.name || '') || !std.version) return true;
+  const n = x => String(x).replace('-', '.').split('.').map(Number), cmp = (a, b) => { a = n(a); b = n(b); for (let i = 0; i < 3; i++) { const d = (a[i] || 0) - (b[i] || 0); if (d) return d; } return 0; };
+  if (s.v[0] && cmp(std.version, s.v[0]) < 0) return false;
+  if (s.v[1] && cmp(std.version, s.v[1]) > 0) return false;
+  return true;
 };
 
 /* ---------------------------------------------------------------- generation */
@@ -354,38 +412,71 @@ Engine.prototype.generate = function (M, sel, opts) {
   const encs = M.design.encounters || [];
   const events = encs.map((e, i) => ({ Order: i + 1, ID: e.name, Name: e.label || e.name, Type: 'Scheduled', Mandatory: '', Repeating: 'No', DeveloperNotes: '' }));
   const forms = [], questions = [], soa = [], crfCls = new Map(), crfTerms = [], actForms = {};
+  const emitCosmos = (act, formId, sectionPrefix, { bc, s, c }, orderRef) => {
+    const crfSdtm = D.crf[c].sdtm, cross = !!(s && crfSdtm && crfSdtm !== s);
+    const overrides = [], review = [];
+    this.crfItems[c].forEach(r0 => {
+      orderRef.n++; const rc = this.reconcileItem(s, c, r0); const r = rc.r, note = rc.note, base = rc.base;
+      overrides.push(...rc.overrides); if (rc.review) review.push(r.crf_item);
+      let cl = '';
+      if (r.value_list || r.prepopulated_term) {
+        cl = `${D.crf[c].d}_${base}_${r.codelist_submission_value || r.variable_name}`;
+        if (!crfCls.has(cl)) {
+          crfCls.set(cl, { ID: cl, Name: `${r.prompt || r.question_text || r.variable_name} (${base})`, DataType: 'text', Terminology: r.codelist_submission_value || '', Source: 'COSMoS' });
+          const vals = r.value_list ? r.value_list.split(';') : [r.prepopulated_term];
+          const disp = r.value_list_display ? r.value_list_display.split(';') : vals.map(() => '');
+          vals.forEach((val, j) => { const t = E.termBy[r.codelist_submission_value + '|' + val];
+            crfTerms.push({ Codelist: cl, Order: j + 1, Term: val, DecodedValue: disp[j] || (t ? t.decodedValue : val), NCICode: t ? t.nciCode : '' }); });
+        }
+      }
+      questions.push({ Form: formId, Section: sectionPrefix + c, Order: orderRef.n, ID: r.crf_item, SourceVariableName: r.variable_name, QuestionText: r.question_text, Prompt: r.prompt,
+        Description: r.dec_id, DataType: r.data_type, Length: r.length, Digits: r.significant_digits, Mandatory: r.mandatory_variable === 'Y' ? 'Yes' : 'No', Codelist: cl,
+        DefaultValue: r.prepopulated_term, Hidden: r.display_hidden === 'Y' ? 'Yes' : 'No', ControlType: r.selection_type,
+        SDTMTarget: r.sdtm_target_variables.split(';').filter(Boolean).map(x => D.crf[c].d + '.' + x).join(';'), MappingInstructions: r.sdtm_annotation,
+        Core: '', CompletionInstructions: '', ImplementationNotes: '', DeveloperNotes: note, Source: 'COSMoS', BC: bc.name, CRFSpecialization: c, SDTMSpecialization: s || '' });
+    });
+    if (cross) rep('crf_specialization_user_selected_cross_match', { activity: act.name, bc: bc.name, sdtmSpecialization: s, crfSpecialization: c, crfNativeSdtmSpecialization: crfSdtm, overrides, itemsToReview: review });
+  };
+  const formSource = opts.formSource || {};
   M.activities.forEach(x => {
-    const act = x.a; const selA = selected.filter(y => y.act.id === act.id && y.c); if (!selA.length) return;
+    const act = x.a, selAll = selected.filter(y => y.act.id === act.id), selA = selAll.filter(y => y.c);
+    const fsrc = formSource[act.id] || '', libForm = fsrc.startsWith('lib:') && this.lib ? this.lib.formById[fsrc.slice(4)] : null;
+    if (libForm) {   // ---- tier 1: sponsor form library
+      const fid = libForm.id; actForms[act.id] = fid;
+      forms.push({ Order: forms.length + 1, ID: fid, Name: libForm.name || fid, Description: libForm.description || '', Class: '', Repeating: libForm.isRepeating ? 'Yes' : 'No',
+        Condition: '', SourceDatasetName: '', SDTMTargetDomains: '', DeveloperNotes: `Library form (${this.lib.name}) for USDM activity ${act.name}`, Source: 'Library' });
+      const codes = new Set(selAll.map(y => this.topicCode(y.s)).filter(Boolean));
+      const covered = new Set(); const orderRef = { n: 0 };
+      this.lib.questionsByForm[fid].forEach(q => {
+        orderRef.n++; const toks = this.qTokens(q), hit = selAll.filter(y => { const tc = this.topicCode(y.s); return tc && toks.has(tc); });
+        hit.forEach(y => covered.add(y.bc.id));
+        const other = [...new Set([...this.qTestCodes(q), ...[...toks].filter(t => this.allTopicCodes.has(t))])].filter(t => !codes.has(t));
+        const cl = q.codelist || '';
+        if (cl && !crfCls.has(cl) && this.lib.codelistById[cl]) {
+          const lc = this.lib.codelistById[cl]; crfCls.set(cl, { ID: cl, Name: lc.name || cl, DataType: lc.dataType || 'text', Terminology: lc.recommendedCodelist || '', Source: 'Library' });
+          (this.lib.termsByCl[cl] || []).forEach(t => crfTerms.push({ Codelist: cl, Order: t.order, Term: t.term, DecodedValue: t.recommendedTerm || t.term, NCICode: '' }));
+        }
+        questions.push({ Form: fid, Section: q.section || '', Order: orderRef.n, ID: q.id, SourceVariableName: q.id, QuestionText: q.questionText || '', Prompt: '',
+          Description: q.description || '', DataType: q.type || '', Length: q.length || '', Digits: q.digits || '', Mandatory: q.isMandatory ? 'Yes' : 'No', Codelist: cl,
+          DefaultValue: '', Hidden: 'No', ControlType: '', SDTMTarget: q.sdtmTarget || '', MappingInstructions: '', Core: '', CompletionInstructions: '', ImplementationNotes: '',
+          DeveloperNotes: [q.developerNotes, other.length && !hit.length ? `Review: test ${other.join(', ')} not in USDM activity ${act.name} - remove if not collected` : ''].filter(Boolean).join(' | '),
+          Source: 'Library', BC: hit.map(y => y.bc.name).join('; '), CRFSpecialization: '', SDTMSpecialization: hit.map(y => y.s).join('; ') });
+        if (other.length && !hit.length) rep('library_questions_not_required_by_usdm', { activity: act.name, form: fid, question: q.id, tests: other });
+      });
+      selAll.filter(y => !covered.has(y.bc.id)).forEach(y => {
+        if (y.c) { emitCosmos(act, fid, 'COSMoS:', y, orderRef); rep('bc_not_in_library_form_cosmos_fallback', { activity: act.name, form: fid, bc: y.bc.name, crfSpecialization: y.c }); }
+        else rep('bc_not_in_library_form_no_fallback', { activity: act.name, form: fid, bc: y.bc.name });
+      });
+      rep('library_forms_used', { activity: act.name, form: fid, library: this.lib.name, bcsCovered: covered.size, bcs: selAll.length });
+      return;
+    }
+    if (!selA.length) return;   // ---- tier 3: COSMoS CRF specializations written directly
     const doms = [...new Set(selA.map(y => D.crf[y.c].d))].sort();
     actForms[act.id] = act.name;
     forms.push({ Order: forms.length + 1, ID: act.name, Name: act.label || act.name, Description: '', Class: '', Repeating: doms.some(d => REPEATING.has(d)) ? 'Yes' : 'No',
-      Condition: '', SourceDatasetName: doms.join(','), SDTMTargetDomains: doms.join(','), DeveloperNotes: '' });
-    let order = 0;
-    selA.forEach(({ bc, s, c }) => {
-      const crfSdtm = D.crf[c].sdtm, cross = !!(s && crfSdtm && crfSdtm !== s);
-      const overrides = [], review = [];
-      this.crfItems[c].forEach(r0 => {
-        order++; const rc = this.reconcileItem(s, c, r0); const r = rc.r, note = rc.note, base = rc.base;
-        overrides.push(...rc.overrides); if (rc.review) review.push(r.crf_item);
-        let cl = '';
-        if (r.value_list || r.prepopulated_term) {
-          cl = `${D.crf[c].d}_${base}_${r.codelist_submission_value || r.variable_name}`;
-          if (!crfCls.has(cl)) {
-            crfCls.set(cl, { ID: cl, Name: `${r.prompt || r.question_text || r.variable_name} (${base})`, DataType: 'text', Terminology: r.codelist_submission_value || '' });
-            const vals = r.value_list ? r.value_list.split(';') : [r.prepopulated_term];
-            const disp = r.value_list_display ? r.value_list_display.split(';') : vals.map(() => '');
-            vals.forEach((val, j) => { const t = E.termBy[r.codelist_submission_value + '|' + val];
-              crfTerms.push({ Codelist: cl, Order: j + 1, Term: val, DecodedValue: disp[j] || (t ? t.decodedValue : val), NCICode: t ? t.nciCode : '' }); });
-          }
-        }
-        questions.push({ Form: act.name, Section: c, Order: order, ID: r.crf_item, SourceVariableName: r.variable_name, QuestionText: r.question_text, Prompt: r.prompt,
-          Description: r.dec_id, DataType: r.data_type, Length: r.length, Digits: r.significant_digits, Mandatory: r.mandatory_variable === 'Y' ? 'Yes' : 'No', Codelist: cl,
-          DefaultValue: r.prepopulated_term, Hidden: r.display_hidden === 'Y' ? 'Yes' : 'No', ControlType: r.selection_type,
-          SDTMTarget: r.sdtm_target_variables.split(';').filter(Boolean).map(x => D.crf[c].d + '.' + x).join(';'), MappingInstructions: r.sdtm_annotation,
-          Core: '', CompletionInstructions: '', ImplementationNotes: '', DeveloperNotes: note, BC: bc.name, CRFSpecialization: c, SDTMSpecialization: s || '' });
-      });
-      if (cross) rep('crf_specialization_user_selected_cross_match', { activity: act.name, bc: bc.name, sdtmSpecialization: s, crfSpecialization: c, crfNativeSdtmSpecialization: crfSdtm, overrides, itemsToReview: review });
-    });
+      Condition: '', SourceDatasetName: doms.join(','), SDTMTargetDomains: doms.join(','), DeveloperNotes: '', Source: 'COSMoS' });
+    const orderRef = { n: 0 };
+    selA.forEach(y => emitCosmos(act, act.name, '', y, orderRef));
   });
   M.sais.forEach(sai => { const enc = M.encById[sai.encounterId]; if (!enc) return; let o = 0;
     (sai.activityIds || []).forEach(aid => { if (actForms[aid]) soa.push({ Order: ++o, Event: enc.name, Form: actForms[aid], Mandatory: 'Yes' }); }); });
@@ -399,6 +490,9 @@ Engine.prototype.generate = function (M, sel, opts) {
     xa(P21 + '/sdtmStandard', { valueString: `${D.std.specId}|${D.std.name} ${D.std.version}` }),
     xa(P21 + '/terminology', { valueString: `${D.ct.specId}|${D.ct.name} ${D.ct.version}` }),
     xa(P21 + '/generatedAt', { valueString: now })] })]);
+  const xd = xsv.studyDesigns[0];
+  (xd.activities || []).forEach(a => { a.extensionAttributes = (a.extensionAttributes || []).filter(e => e.url !== P21 + '/form-source');
+    const f = formSource[a.id]; if (f && f.startsWith('lib:') && this.lib) a.extensionAttributes.push(xa(P21 + '/form-source', { valueString: f })); });
   (xsv.biomedicalConcepts || []).forEach(bc => {
     const s = sel[bc.id]; bc.extensionAttributes = (bc.extensionAttributes || []).filter(e => e.url !== SD_URL && e.url !== CRF_URL && !e.url.startsWith(P21));
     if (!s || !s.sdtm || !D.sdtm[s.sdtm]) return;

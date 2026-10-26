@@ -14,7 +14,7 @@ Show, on a realistic study, that a USDM v4 protocol can drive P21 study artefact
 
 | Deliverable | Description |
 |---|---|
-| **Sample USDM – CTX101-001** | Fictional Phase 1 randomised, placebo-controlled SAD study in healthy volunteers: 5 cohorts, 3 epochs, 8 visits, 12 criteria, 24 activities, **83 BCs** (vitals, ECG, haematology, coagulation, chemistry, urinalysis, virology, pregnancy, demography, AE, CM, dosing, disposition) and 6 BC surrogates. Validated against the CDISC USDM 4.0 model and rules. Available with and without extensions. |
+| **Sample USDM – CTX101-001** | Fictional Phase 1 randomised, placebo-controlled SAD study in healthy volunteers: 5 cohorts, 3 epochs, 8 visits, 12 criteria, 24 activities, **83 BCs** (vitals, ECG, haematology, coagulation, chemistry, urinalysis, virology, pregnancy, demography, AE, CM, dosing, disposition) and 6 BC surrogates, plus a Day 1 intensive sub-timeline (dosing, PK, vitals, ECG). Validated against the CDISC USDM 4.0 model and rules. Available with and without extensions. |
 | **Local COSMoS specialization table** | 98 SDTM dataset and 309 CRF specializations from the CDISC COSMoS GitHub (packages r9–r18, CRF draft 2026-07-31), flattened as the table P21 would hold. |
 | **Batch pipeline (Python)** | Scripts 00–05: build tables, build USDM, generate define/CRF/TDM/report, Excel export, build demo. |
 | **Local workbench app** | `app/usdm_p21_app.py` – stdlib Python server + browser UI: load USDM → select standard/CT/form library via the **P21 API** (or offline exports) → map in the **SoA** → generate & export → **report dashboard**. |

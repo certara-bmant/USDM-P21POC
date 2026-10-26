@@ -42,15 +42,22 @@ Engine.prototype.parse = function (u) {
   const tl = (design.scheduleTimelines || []).find(t => t.mainTimeline) || (design.scheduleTimelines || [])[0];
   const encById = {}; (design.encounters || []).forEach(e => encById[e.id] = e);
   const epById = {}; (design.epochs || []).forEach(e => epById[e.id] = e);
-  let sais = tl ? (tl.instances || []).filter(i => i.instanceType === 'ScheduledActivityInstance') : [];
-  if (tl && tl.entryId && sais.some(s => s.defaultConditionId)) { // follow the default-condition chain from entry
-    const by = {}; sais.forEach(s => by[s.id] = s); const out = [], seen = new Set(); let cur = by[tl.entryId];
-    while (cur && !seen.has(cur.id)) { out.push(cur); seen.add(cur.id); cur = by[cur.defaultConditionId]; }
-    sais.forEach(s => { if (!seen.has(s.id)) out.push(s); }); sais = out;
-  }
-  const timingByInst = {}; (tl ? tl.timings || [] : []).forEach(t => timingByInst[t.relativeFromScheduledInstanceId] = t);
+  const orderSais = t => { let ss = (t.instances || []).filter(i => i.instanceType === 'ScheduledActivityInstance');
+    if (t.entryId && ss.some(x => x.defaultConditionId)) { // follow the default-condition chain from entry
+      const by = {}; ss.forEach(x => by[x.id] = x); const out = [], seen = new Set(); let cur = by[t.entryId];
+      while (cur && !seen.has(cur.id)) { out.push(cur); seen.add(cur.id); cur = by[cur.defaultConditionId]; }
+      ss.forEach(x => { if (!seen.has(x.id)) out.push(x); }); ss = out; }
+    return ss; };
+  const timingMap = t => { const m = {}; (t.timings || []).forEach(x => m[x.relativeFromScheduledInstanceId] = x); return m; };
+  const sais = tl ? orderSais(tl) : [];
+  const timingByInst = tl ? timingMap(tl) : {};
+  // sub-timelines: every non-main timeline, with what triggers it (main SAIs / activities pointing at it)
+  const allSais = (design.scheduleTimelines || []).flatMap(t => (t.instances || []).map(i => [i, t]));
+  const subTimelines = (design.scheduleTimelines || []).filter(t => t !== tl).map(t => ({ tl: t, sais: orderSais(t), timingByInst: timingMap(t),
+    triggers: [...allSais.filter(([i]) => i.timelineId === t.id).map(([i, p]) => ({ kind: 'instance', name: (encById[i.encounterId] || {}).name || i.label || i.name, timeline: p.name })),
+               ...(design.activities || []).filter(a => a.timelineId === t.id).map(a => ({ kind: 'activity', name: a.label || a.name }))] }));
   const bcActs = {}; activities.forEach(x => x.bcIds.forEach(b => (bcActs[b] = bcActs[b] || []).push(x.a)));
-  return { u, study, sv, design, activities, bcById, surById, tl, sais, encById, epById, timingByInst, bcActs };
+  return { u, study, sv, design, activities, bcById, surById, tl, sais, encById, epById, timingByInst, subTimelines, bcActs };
 };
 
 /* ---------------------------------------------------------------- candidates & suggestions */

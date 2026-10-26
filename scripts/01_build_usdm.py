@@ -262,6 +262,40 @@ timeline = obj('ScheduleTimeline', name='MAIN', label='Main Timeline', descripti
                plannedDuration=obj('Duration', text='Up to 42 days (28-day screening + 14 days)', quantity=qty(42, alias('C25301', 'DAYS')), durationWillVary=True,
                                    reasonDurationWillVary='Screening window may be shorter than 28 days'))
 
+# ------------------------------------------------------------------ Day 1 intensive sub-timeline (dosing, PK, safety)
+SUB = [  # name, label, timing type, value, valueLabel, activities
+    ('PREDOSE', 'Pre-dose', 'Before', 'PT1H', '-1 h', ['VITAL_SIGNS', 'ECG_12LEAD', 'PK_SAMPLING']),
+    ('DOSE', 'Dose', 'Fixed Reference', 'PT0H', '0 h', ['STUDY_DRUG_ADMIN']),
+    ('H0_5', '0.5 h', 'After', 'PT30M', '0.5 h', ['PK_SAMPLING']),
+    ('H1', '1 h', 'After', 'PT1H', '1 h', ['VITAL_SIGNS', 'ECG_12LEAD', 'PK_SAMPLING']),
+    ('H2', '2 h', 'After', 'PT2H', '2 h', ['VITAL_SIGNS', 'ECG_12LEAD', 'PK_SAMPLING']),
+    ('H3', '3 h', 'After', 'PT3H', '3 h', ['PK_SAMPLING']),
+    ('H4', '4 h', 'After', 'PT4H', '4 h', ['VITAL_SIGNS', 'ECG_12LEAD', 'PK_SAMPLING']),
+    ('H6', '6 h', 'After', 'PT6H', '6 h', ['PK_SAMPLING']),
+    ('H8', '8 h', 'After', 'PT8H', '8 h', ['VITAL_SIGNS', 'ECG_12LEAD', 'PK_SAMPLING']),
+    ('H12', '12 h', 'After', 'PT12H', '12 h', ['VITAL_SIGNS', 'PK_SAMPLING']),
+]
+act_by_name = {a['name']: a for a in activities}
+sub_exit = {'id': nid('ScheduleTimelineExit'), 'instanceType': 'ScheduleTimelineExit', 'extensionAttributes': []}
+sub_sais, sub_timings = [], []
+for nm, lab, tt, val, vl, acts in SUB:
+    sub_sais.append(obj('ScheduledActivityInstance', name=f'D1_{nm}', label=lab, description=f'Day 1 {lab}', epochId=epochs['TREATMENT']['id'],
+                        activityIds=[act_by_name[x]['id'] for x in acts], encounterId=None, defaultConditionId=None, timelineId=None,
+                        timelineExitId=sub_exit['id'] if nm == SUB[-1][0] else None))
+for i, x in enumerate(sub_sais):
+    x['defaultConditionId'] = sub_sais[i + 1]['id'] if i + 1 < len(sub_sais) else None
+dose_sai = sub_sais[1]['id']
+for (nm, lab, tt, val, vl, acts), x in zip(SUB, sub_sais):
+    sub_timings.append(obj('Timing', name=f'TIM_D1_{nm}', label=lab, description=f'{lab} relative to dosing', type=code(TIMING_CT[tt], tt), value=val, valueLabel=vl,
+                           relativeToFrom=code('C201355', 'Start to Start'), relativeFromScheduledInstanceId=x['id'],
+                           relativeToScheduledInstanceId=None if tt == 'Fixed Reference' else dose_sai,
+                           windowLower='PT5M' if nm not in ('PREDOSE', 'DOSE') else None, windowUpper='PT5M' if nm not in ('PREDOSE', 'DOSE') else None,
+                           windowLabel='+/- 5 min' if nm not in ('PREDOSE', 'DOSE') else None))
+sub_timeline = obj('ScheduleTimeline', name='DAY1_INTENSIVE', label='Day 1 intensive sampling', description='Dosing, PK sampling and safety assessments on Day 1 (hours relative to dose)',
+                   mainTimeline=False, entryCondition='Participant dosed on Day 1', entryId=sub_sais[0]['id'], exits=[sub_exit], timings=sub_timings, instances=sub_sais,
+                   plannedDuration=obj('Duration', text='13 hours', quantity=qty(13, alias('C25529', 'HOURS')), durationWillVary=False))
+sais[ALL.index('D1')]['timelineId'] = sub_timeline['id']
+
 # ------------------------------------------------------------------ eligibility, objectives, population
 INCL = ['Healthy male or female participants aged 18 to 55 years inclusive at screening.',
         'Body mass index (BMI) of 18.0 to 32.0 kg/m2 inclusive and body weight of at least 50 kg at screening.',
@@ -314,7 +348,7 @@ design = obj('InterventionalStudyDesign', name='CTX101-001 Design', label='SAD d
              encounters=list(encs.values()), activities=activities, arms=list(arms.values()), studyCells=cells,
              rationale='First-in-human assessment of safety, tolerability and PK across 5 sequential dose cohorts (6 active : 2 placebo).',
              epochs=ep, elements=list(elements.values()), estimands=[], indications=[], studyInterventionIds=[ctx_int['id'], pbo_int['id']],
-             objectives=objectives, population=population, scheduleTimelines=[timeline], biospecimenRetentions=[], documentVersionIds=[],
+             objectives=objectives, population=population, scheduleTimelines=[timeline, sub_timeline], biospecimenRetentions=[], documentVersionIds=[],
              eligibilityCriteria=crits, analysisPopulations=analysis_pops, notes=[], subTypes=[code('C49667', 'SAFETY'), code('C98791', 'TOLERABILITY'), code('C49663', 'PHARMACOKINETIC')],
              model=code('C142568', 'SEQUENTIAL'), intentTypes=[], blindingSchema=alias('C15228', 'DOUBLE BLIND'))
 

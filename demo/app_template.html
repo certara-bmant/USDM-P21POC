@@ -106,6 +106,10 @@ table.grid select{font-size:11.5px;max-width:330px}
 .prev td{border-bottom:1px solid #f0f0f0;padding:3px 6px;vertical-align:top;max-width:420px}
 .warnbox{background:#fff8e1;border:1px solid #ffe082;border-radius:6px;padding:8px 12px;font-size:12px;margin-top:10px}
 .hint{font-size:11.5px;color:#555;background:#eef3fb;border-radius:6px;padding:8px 12px;margin:0 0 10px}
+.subtl{position:sticky;left:0;display:flex;gap:12px;align-items:baseline;padding:14px 10px 6px;background:#fff;border-top:3px solid #6a1b9a;margin-top:10px}
+.subtl .ttl{font-weight:700;color:#4a148c;font-size:13px}
+table.soa.sub thead th{position:static}
+table.soa.sub td.dot{color:#6a1b9a}
 </style>
 </head>
 <body>
@@ -244,7 +248,7 @@ function toggleConf(id, v) { if (SEL[id]) { SEL[id].confirmed = v; render(); } }
 function confirmAll() { Object.values(SEL).forEach(s => { if (s.sdtm) s.confirmed = true; }); render(); }
 function doSuggest(all) { E.suggest(M, SEL, all); render(); }
 function expandAll(v) { OPEN = v ? new Set(M.activities.map(x => x.a.id)) : new Set(); render(); }
-function toggleAct(id) { OPEN.has(id) ? OPEN.delete(id) : OPEN.add(id); render(); }
+function toggleAct(k) { const id = k.split('|').pop(); if (OPEN.has(k)) OPEN.delete(k); else if (OPEN.has(id)) OPEN.delete(id); else OPEN.add(k); render(); }
 function setView(v) { VIEW = v; $('v-soa').classList.toggle('on', v === 'soa'); $('v-tab').classList.toggle('on', v === 'tab'); render(); }
 function setStatusFilter(s) { STATUS_FILTER = STATUS_FILTER === s ? null : s; if (STATUS_FILTER) expandAll(true); else render(); }
 
@@ -280,25 +284,49 @@ function render() {
   wrap.innerHTML = VIEW === 'soa' ? renderSoA() : renderTable();
   wrap.scrollTop = y; wrap.scrollLeft = x;
 }
+function formSelect() { return ''; }
 function renderSoA() {
-  const sais = M.sais, eps = []; sais.forEach(s => { const e = M.epById[s.epochId]; const n = e ? (e.label || e.name) : '';
+  const subs = M.subTimelines || [];
+  const inSub = new Set(subs.flatMap(t => t.sais.flatMap(x => x.activityIds || [])));
+  const inMain = new Set(M.sais.flatMap(x => x.activityIds || []));
+  // main timeline: epoch / encounter / timing headers; activities only scheduled in a sub-timeline are shown there instead
+  const eps = []; M.sais.forEach(s => { const e = M.epById[s.epochId]; const n = e ? (e.label || e.name) : '';
     if (eps.length && eps[eps.length - 1].n === n) eps[eps.length - 1].c++; else eps.push({ n, c: 1 }); });
-  let h = `<table class="soa"><thead><tr class="h1"><th class="c0" rowspan="1">Activity / Biomedical Concept</th>${eps.map(e => `<th colspan="${e.c}">${esc(e.n)}</th>`).join('')}</tr>
-    <tr class="h2"><th class="c0" style="background:#253570;color:#90caf9">SDTM specialization · CRF specialization</th>${sais.map(s => { const e = M.encById[s.encounterId]; return `<th title="${esc(e ? e.label : s.name)}">${esc(e ? e.name : s.name)}</th>`; }).join('')}</tr>
-    <tr class="h3"><th class="c0" style="background:#2d3f80"></th>${sais.map(s => { const t = M.timingByInst[s.id]; return `<th>${esc(t ? t.valueLabel : '')}</th>`; }).join('')}</tr></thead><tbody>`;
-  const nC = sais.length;
+  const subOf = {}; subs.forEach(t => t.sais.length && M.sais.forEach(x => { if (x.timelineId === t.tl.id) subOf[x.id] = t.tl; }));
+  let h = grid({
+    head: `<tr class="h1"><th class="c0">Main timeline · Activity / Biomedical Concept</th>${eps.map(e => `<th colspan="${e.c}">${esc(e.n)}</th>`).join('')}</tr>
+      <tr class="h2"><th class="c0" style="background:#253570;color:#90caf9">SDTM specialization · CRF specialization</th>${M.sais.map(s => { const e = M.encById[s.encounterId];
+        return `<th title="${esc(e ? e.label : s.name)}">${esc(e ? e.name : (s.label || s.name))}${subOf[s.id] ? ` <span title="Sub-timeline: ${esc(subOf[s.id].label || subOf[s.id].name)}">⏱</span>` : ''}</th>`; }).join('')}</tr>
+      <tr class="h3"><th class="c0" style="background:#2d3f80"></th>${M.sais.map(s => { const t = M.timingByInst[s.id]; return `<th>${esc(t ? t.valueLabel : '')}</th>`; }).join('')}</tr>`,
+    sais: M.sais, keep: x => inMain.has(x.a.id) || !inSub.has(x.a.id), key: 'main' });
+  subs.forEach(T => {
+    if (!T.sais.length) return;
+    const trig = T.triggers.map(t => (t.kind === 'instance' ? 'at ' : 'for ') + t.name).join(', ');
+    h += `<div class="subtl"><span class="ttl">⏱ Sub-timeline: ${esc(T.tl.label || T.tl.name)}</span><span class="muted">${esc(T.tl.description || '')}${trig ? ' · triggered ' + esc(trig) : ''}${T.tl.entryCondition ? ' · entry: ' + esc(T.tl.entryCondition) : ''}</span></div>`;
+    h += grid({
+      head: `<tr class="h2"><th class="c0" style="background:#4a148c;color:#e1bee7">Activity / Biomedical Concept</th>${T.sais.map(s => `<th style="background:#4a148c" title="${esc(s.description || s.name)}">${esc(s.label || s.name)}</th>`).join('')}</tr>
+        <tr class="h3"><th class="c0" style="background:#6a1b9a"></th>${T.sais.map(s => { const t = T.timingByInst[s.id]; return `<th style="background:#6a1b9a;color:#e1bee7">${esc(t ? t.valueLabel + (t.windowLabel ? ' (' + t.windowLabel + ')' : '') : '')}</th>`; }).join('')}</tr>`,
+      sais: T.sais, keep: x => T.sais.some(s => (s.activityIds || []).includes(x.a.id)), key: T.tl.id, sub: true });
+  });
+  return h;
+}
+function grid(o) {
+  const sais = o.sais, nC = sais.length;
+  let h = `<table class="soa ${o.sub ? 'sub' : ''}"><thead>${o.head}</thead><tbody>`;
   M.activities.forEach(x => {
     const a = x.a, actTxt = [a.name, a.label].join(' ');
-    if (x.isParent && !x.bcIds.length) { if (matches(actTxt) || !$('flt').value) h += `<tr class="grp"><td class="c0">${esc(a.label || a.name)}</td><td colspan="${nC}"></td></tr>`; return; }
+    if (x.isParent && !x.bcIds.length) { if (!o.sub && (matches(actTxt) || !$('flt').value)) h += `<tr class="grp"><td class="c0">${esc(a.label || a.name)}</td><td colspan="${nC}"></td></tr>`; return; }
+    if (!o.keep(x)) return;
     const vis = x.bcIds.filter(id => bcVisible(id, actTxt));
-    const surVis = STATUS_FILTER ? [] : x.surIds.filter(() => true);
+    const surVis = STATUS_FILTER ? [] : x.surIds;
     if (!vis.length && !(matches(actTxt) && !STATUS_FILTER)) return;
     const sched = sais.map(s => (s.activityIds || []).includes(a.id));
     const st = x.bcIds.map(statusOf), ok = st.filter(s => s === 'exact' || s === 'cross').length;
     const pills = (x.bcIds.length ? `<span class="pill ${ok === x.bcIds.length ? 'ok' : st.includes('none') ? 'bad' : 'warn'}">BC ${ok}/${x.bcIds.length}</span>` : '') +
       (x.surIds.length ? `<span class="pill" style="background:#eceff1;color:#607d8b">surrogate ×${x.surIds.length}</span>` : '');
-    const open = OPEN.has(a.id) || !!STATUS_FILTER || !!$('flt').value.trim();
-    h += `<tr class="act ${open ? 'open' : ''}" onclick="toggleAct('${a.id}')"><td class="c0"><span class="caret">▸</span>${esc(a.label || a.name)} ${pills}</td>${sched.map(v => `<td class="dot">${v ? '●' : ''}</td>`).join('')}</tr>`;
+    const k = o.key + '|' + a.id, open = OPEN.has(k) || OPEN.has(a.id) || !!STATUS_FILTER || !!$('flt').value.trim();
+    const tlp = !o.sub && a.timelineId && (M.subTimelines || []).find(t => t.tl.id === a.timelineId);
+    h += `<tr class="act ${open ? 'open' : ''}" onclick="toggleAct('${k}')"><td class="c0"><span class="caret">▸</span>${esc(a.label || a.name)} ${pills}${tlp ? `<span class="pill" style="background:#f3e5f5;color:#6a1b9a">⏱ ${esc(tlp.tl.label || tlp.tl.name)}</span>` : ''}${o.sub ? '' : formSelect(x)}</td>${sched.map(v => `<td class="dot">${v ? '●' : ''}</td>`).join('')}</tr>`;
     if (!open) return;
     (vis.length || STATUS_FILTER ? vis : x.bcIds).forEach(id => {
       const b = M.bcById[id], s = SEL[id] || {};

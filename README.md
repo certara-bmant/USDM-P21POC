@@ -51,7 +51,7 @@ No install required – standard-library Python only. A zero-server, single-file
                  (P21 API lists / exports)    (SoA view + table view)    (xlsx / json)           (KPIs, charts, findings)
 ```
 
-**Step 3 – mapping in the SoA.** Each activity row expands to its BCs with inline SDTM / CRF specialization selects aligned to the visit columns. Suggestions are ranked by BC code, name and *activity context* (e.g. *Glucose* under *Urinalysis* → `GLUCURINPRES`, under *Chemistry* → `GLUCSERPL`). A side drawer shows candidate scores, specialization variables and a preview of CRF item reconciliation. A table view gives the same selections for bulk review. When a form library is loaded, each activity also gets a **form source** (library form vs COSMoS direct).
+**Step 3 – mapping in the SoA.** The main timeline is followed by a grid per sub-timeline (e.g. Day 1 intensive PK sampling). Each activity row expands to its BCs with inline SDTM / CRF specialization selects aligned to the visit columns. Suggestions are ranked by BC code, name and *activity context* (e.g. *Glucose* under *Urinalysis* → `GLUCURINPRES`, under *Chemistry* → `GLUCSERPL`). A side drawer shows candidate scores, specialization variables and a preview of CRF item reconciliation. A table view gives the same selections for bulk review. When a form library is loaded, each activity also gets a **form source** (library form vs COSMoS direct).
 
 ## Architecture
 
@@ -164,7 +164,7 @@ Scripts 01/04 need `pip install usdm` (CDISC USDM pydantic model) for validation
 - **Form-library matching is heuristic** (test codes in `sdtmTarget` / question IDs) and has only been tested against a mock library export.
 - **CT subset:** codelists > 1,000 terms are carried with referenced terms only.
 - **USDM rule DDF00155** in `usdm4` has a stale CT-version list (ends 2025-03-28); with current versions appended all implemented rules pass.
-- TM/TD and sub-timelines (e.g. PK sampling schedules) are out of scope.
+- **Sub-timelines** are shown in the mapping step (one purple grid per non-main `ScheduleTimeline`, with its trigger – activity `timelineId` or instance `timelineId` – and timing labels; BC selections are shared with the main grid), but generation uses the **main timeline** only: TV, CRF events and the CRF schedule of activities ignore sub-timeline timepoints. TM/TD are out of scope.
 - **Procedure-only activities are not resolved (key gap).** Generation only follows `Activity.biomedicalConceptIds` (plus BC categories). Many real USDMs describe assessments as `Activity.definedProcedures` (a `Procedure` with a code such as CPT/SNOMED/NCIt, e.g. "12-lead ECG", "Complete blood count") with no BCs attached. These activities show no BCs, so no specialization, define content or form items are generated. Support is deferred; see [Roadmap](#roadmap).
 
 ## Roadmap
