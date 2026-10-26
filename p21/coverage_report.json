@@ -1,0 +1,610 @@
+{
+ "summary": {
+  "bcSelected": 83,
+  "sdtmSpecializations": 83,
+  "domains": [
+   "DS",
+   "IE",
+   "DM",
+   "MH",
+   "SU",
+   "VS",
+   "EG",
+   "LB",
+   "MB",
+   "EC",
+   "AE",
+   "CM"
+  ],
+  "defineDatasets": 17,
+  "defineVariables": 192,
+  "vlmRows": 274,
+  "codelists": 87,
+  "terms": 521,
+  "crfForms": 18,
+  "crfQuestions": 643,
+  "crfCodelists": 243,
+  "soaRows": 62,
+  "TA": 6,
+  "TE": 4,
+  "TV": 8,
+  "TI": 12,
+  "TS": 38,
+  "masterTerminologyTerms": 46883,
+  "masterVariables": 7387,
+  "bcWithoutCrfSpecialization": 10,
+  "crfCrossMatched": 10,
+  "surrogatesExcluded": 6
+ },
+ "bc_surrogates_excluded": [
+  {
+   "activity": "PHYSICAL_EXAM",
+   "surrogate": "Physical Examination",
+   "description": "Complete/symptom-directed physical examination by body system; no COSMoS specialization published (PE domain)."
+  },
+  {
+   "activity": "URINALYSIS",
+   "surrogate": "Leukocyte Esterase Presence in Urine",
+   "description": "Dipstick leukocyte esterase (LBTESTCD LEUKASE, NCI C64856). No COSMoS BC or SDTM/CRF specialization published as of r18 / CRF draft 2026-07-31."
+  },
+  {
+   "activity": "SEROLOGY",
+   "surrogate": "HIV-1/2 Antibody Presence in Serum or Plasma",
+   "description": "HIV-1/2 antibody/antigen combination screen; no COSMoS SDTM specialization published."
+  },
+  {
+   "activity": "DRUG_ALCOHOL_SCREEN",
+   "surrogate": "Urine Drugs of Abuse Screen",
+   "description": "Panel: amphetamines, barbiturates, benzodiazepines, cannabinoids, cocaine, opiates, methadone."
+  },
+  {
+   "activity": "DRUG_ALCOHOL_SCREEN",
+   "surrogate": "Alcohol Breath Test",
+   "description": "Breath ethanol screen."
+  },
+  {
+   "activity": "PK_SAMPLING",
+   "surrogate": "CTX-101 Plasma Concentration",
+   "description": "PK blood samples: predose, 0.5, 1, 2, 3, 4, 6, 8, 12, 24, 36, 48, 72 h post-dose (sub-timeline not modelled)."
+  }
+ ],
+ "bc_without_crf_specialization": [
+  {
+   "activity": "HEMATOLOGY",
+   "bc": "Lymphocyte Count in Blood",
+   "bcCode": "C51949",
+   "sdtmSpecialization": "LYMPHBLD"
+  },
+  {
+   "activity": "COAGULATION",
+   "bc": "Prothrombin Intl. Normalized Ratio in Platelet Poor Plasma",
+   "bcCode": "C64805",
+   "sdtmSpecialization": "INRPPP"
+  },
+  {
+   "activity": "COAGULATION",
+   "bc": "Activated Partial Thromboplastin Time in Platelet Poor Plasma",
+   "bcCode": "C38462",
+   "sdtmSpecialization": "APTTPPP"
+  },
+  {
+   "activity": "CHEMISTRY",
+   "bc": "Direct Bilirubin Concentration in Serum or Plasma",
+   "bcCode": "C64481",
+   "sdtmSpecialization": "BILDIRSERPL"
+  },
+  {
+   "activity": "CHEMISTRY",
+   "bc": "Creatine Kinase Concentration in Serum or Plasma",
+   "bcCode": "C64489",
+   "sdtmSpecialization": "CKSERPL"
+  },
+  {
+   "activity": "URINALYSIS",
+   "bc": "Urobilinogen Presence in Urine",
+   "bcCode": "C64810",
+   "sdtmSpecialization": "UROBILURINPRES"
+  },
+  {
+   "activity": "SEROLOGY",
+   "bc": "Hepatitis B Virus Surface Antigen Presence in Serum or Plasma",
+   "bcCode": "C64850",
+   "sdtmSpecialization": "HBSAGSERPLPRES"
+  },
+  {
+   "activity": "SEROLOGY",
+   "bc": "Hepatitis C Virus RNA Presence in Serum or Plasma",
+   "bcCode": "C142330",
+   "sdtmSpecialization": "HCRNASERPLPRES"
+  },
+  {
+   "activity": "DISP_TREATMENT",
+   "bc": "Study Treatment Disposition",
+   "bcCode": "C224899",
+   "sdtmSpecialization": "DSSTUDYTREATMENT"
+  },
+  {
+   "activity": "DISP_STUDY",
+   "bc": "Study Participation Disposition",
+   "bcCode": "C224898",
+   "sdtmSpecialization": "DSSTUDYPARTICIPATION"
+  }
+ ],
+ "trial_design_blank_fields": [
+  {
+   "domain": "TE",
+   "field": "TEDUR",
+   "element": "SCRN",
+   "reason": "No element duration in USDM"
+  },
+  {
+   "domain": "TE",
+   "field": "TEDUR",
+   "element": "CTX",
+   "reason": "No element duration in USDM"
+  },
+  {
+   "domain": "TE",
+   "field": "TEDUR",
+   "element": "PBO",
+   "reason": "No element duration in USDM"
+  },
+  {
+   "domain": "TE",
+   "field": "TEDUR",
+   "element": "FU",
+   "reason": "No element duration in USDM"
+  }
+ ],
+ "ts_parameters_not_derivable_from_usdm": [
+  {
+   "TSPARMCD": "ADDON",
+   "TSPARM": "Added on to Existing Treatments"
+  },
+  {
+   "TSPARMCD": "STOPRULE",
+   "TSPARM": "Study Stop Rules"
+  },
+  {
+   "TSPARMCD": "TDIGRP",
+   "TSPARM": "Diagnosis Group"
+  },
+  {
+   "TSPARMCD": "TINDTP",
+   "TSPARM": "Trial Intent Type"
+  },
+  {
+   "TSPARMCD": "CURTRT",
+   "TSPARM": "Current Therapy or Treatment"
+  },
+  {
+   "TSPARMCD": "INDIC",
+   "TSPARM": "Trial Disease/Condition Indication"
+  },
+  {
+   "TSPARMCD": "RANDQT",
+   "TSPARM": "Randomization Quotient"
+  },
+  {
+   "TSPARMCD": "STRATFCT",
+   "TSPARM": "Stratification Factor"
+  },
+  {
+   "TSPARMCD": "PCLAS",
+   "TSPARM": "Pharmacologic Class"
+  },
+  {
+   "TSPARMCD": "FCNTRY",
+   "TSPARM": "Planned Country of Investigational Sites"
+  },
+  {
+   "TSPARMCD": "DCUTDTC",
+   "TSPARM": "Data Cutoff Date"
+  },
+  {
+   "TSPARMCD": "DCUTDESC",
+   "TSPARM": "Data Cutoff Description"
+  },
+  {
+   "TSPARMCD": "SSTDTC",
+   "TSPARM": "Study Start Date"
+  },
+  {
+   "TSPARMCD": "SENDTC",
+   "TSPARM": "Study End Date"
+  },
+  {
+   "TSPARMCD": "ACTSUB",
+   "TSPARM": "Actual Number of Subjects"
+  },
+  {
+   "TSPARMCD": "SDMDUR",
+   "TSPARM": "Stable Disease Minimum Duration"
+  },
+  {
+   "TSPARMCD": "CRMDUR",
+   "TSPARM": "Confirmed Response Minimum Duration"
+  },
+  {
+   "TSPARMCD": "EXTTIND",
+   "TSPARM": "Extension Trial Indicator"
+  },
+  {
+   "TSPARMCD": "PDPSTIND",
+   "TSPARM": "Pediatric Postmarket Study Indicator"
+  },
+  {
+   "TSPARMCD": "PDSTIND",
+   "TSPARM": "Pediatric Study Indicator"
+  },
+  {
+   "TSPARMCD": "PIPIND",
+   "TSPARM": "Pediatric Investigation Plan Indicator"
+  },
+  {
+   "TSPARMCD": "RDIND",
+   "TSPARM": "Rare Disease Indicator"
+  },
+  {
+   "TSPARMCD": "ONGOSIND",
+   "TSPARM": "Ongoing Study Indicator"
+  },
+  {
+   "TSPARMCD": "THERAREA",
+   "TSPARM": "Therapeutic Area"
+  }
+ ],
+ "external_dictionaries": [
+  {
+   "variable": "MH.MHDECOD",
+   "dictionary": "MedDRA"
+  },
+  {
+   "variable": "AE.AELLT",
+   "dictionary": "MedDRA"
+  },
+  {
+   "variable": "AE.AELLTCD",
+   "dictionary": "MedDRA"
+  },
+  {
+   "variable": "AE.AEDECOD",
+   "dictionary": "MedDRA"
+  },
+  {
+   "variable": "AE.AEPTCD",
+   "dictionary": "MedDRA"
+  },
+  {
+   "variable": "AE.AEHLT",
+   "dictionary": "MedDRA"
+  },
+  {
+   "variable": "AE.AEHLTCD",
+   "dictionary": "MedDRA"
+  },
+  {
+   "variable": "AE.AEHLGT",
+   "dictionary": "MedDRA"
+  },
+  {
+   "variable": "AE.AEHLGTCD",
+   "dictionary": "MedDRA"
+  },
+  {
+   "variable": "AE.AEBODSYS",
+   "dictionary": "MedDRA"
+  },
+  {
+   "variable": "AE.AEBDSYCD",
+   "dictionary": "MedDRA"
+  },
+  {
+   "variable": "AE.AESOC",
+   "dictionary": "MedDRA"
+  },
+  {
+   "variable": "AE.AESOCCD",
+   "dictionary": "MedDRA"
+  },
+  {
+   "variable": "CM.CMDECOD",
+   "dictionary": "WHODD"
+  }
+ ],
+ "full_codelists_included": [
+  {
+   "codelist": "NCOMPLT",
+   "terms": 45,
+   "usedBy": [
+    "DS.DSDECOD",
+    "DS.DSDECOD [DSSTUDYPARTICIPATION]"
+   ]
+  },
+  {
+   "codelist": "Y",
+   "terms": 1,
+   "usedBy": [
+    "DM.DTHFL",
+    "VS.VSLOBXFL",
+    "EG.EGLOBXFL",
+    "LB.LBLOBXFL"
+   ]
+  },
+  {
+   "codelist": "NORMABNM",
+   "terms": 5,
+   "usedBy": [
+    "EG.EGORRES",
+    "EG.EGORRES [EGINTP]",
+    "EG.EGSTRESC",
+    "EG.EGSTRESC [EGINTP]"
+   ]
+  },
+  {
+   "codelist": "EGMETHOD",
+   "terms": 36,
+   "usedBy": [
+    "EG.EGMETHOD"
+   ]
+  },
+  {
+   "codelist": "NRIND",
+   "terms": 4,
+   "usedBy": [
+    "LB.LBNRIND"
+   ]
+  },
+  {
+   "codelist": "ACN",
+   "terms": 8,
+   "usedBy": [
+    "AE.AEACN"
+   ]
+  }
+ ],
+ "codelist_not_in_terminology": [
+  {
+   "codelist": "RACE",
+   "usedBy": [
+    "DM.RACE"
+   ]
+  }
+ ],
+ "codelists_deferred_to_be_populated": [
+  {
+   "codelist": "ARMNULRS",
+   "masterTerms": 5,
+   "usedBy": [
+    "DM.ARMNRS"
+   ],
+   "reason": "Extensible codelist referenced only by domain-shell Record Qualifier variables not covered by any selected specialization"
+  },
+  {
+   "codelist": "METHOD",
+   "masterTerms": 531,
+   "usedBy": [
+    "MB.MBMETHOD"
+   ],
+   "reason": "Extensible codelist referenced only by domain-shell Record Qualifier variables not covered by any selected specialization"
+  }
+ ],
+ "codelist_unconstrained_usage_limited_to_resolved_terms": [
+  {
+   "codelist": "VSRESU",
+   "terms": 12,
+   "masterTerms": 29,
+   "unconstrainedVariables": [
+    "VS.VSSTRESU"
+   ]
+  }
+ ],
+ "crf_specialization_user_selected_cross_match": [
+  {
+   "activity": "CHEMISTRY",
+   "bc": "Sodium Concentration in Serum or Plasma",
+   "bcCode": "C64809",
+   "sdtmSpecialization": "SODIUMSERPL",
+   "crfSpecialization": "SODIUMBLD_DENORMALIZED",
+   "crfNativeSdtmSpecialization": "SODIUMBLD",
+   "overrides": [
+    {
+     "item": "SODIUM_LBSPEC",
+     "field": "prepopulated value",
+     "from": "BLOOD",
+     "to": "SERUM OR PLASMA"
+    }
+   ],
+   "itemsToReview": []
+  },
+  {
+   "activity": "CHEMISTRY",
+   "bc": "Potassium Concentration in Serum or Plasma",
+   "bcCode": "C64853",
+   "sdtmSpecialization": "KSERPL",
+   "crfSpecialization": "KBLD_DENORMALIZED",
+   "crfNativeSdtmSpecialization": "KBLD",
+   "overrides": [
+    {
+     "item": "K_LBSPEC",
+     "field": "prepopulated value",
+     "from": "BLOOD",
+     "to": "SERUM OR PLASMA"
+    }
+   ],
+   "itemsToReview": []
+  },
+  {
+   "activity": "CHEMISTRY",
+   "bc": "Chloride Concentration in Serum or Plasma",
+   "bcCode": "C64495",
+   "sdtmSpecialization": "CLSERPL",
+   "crfSpecialization": "CLBLD_DENORMALIZED",
+   "crfNativeSdtmSpecialization": "CLBLD",
+   "overrides": [
+    {
+     "item": "CL_LBSPEC",
+     "field": "prepopulated value",
+     "from": "BLOOD",
+     "to": "SERUM OR PLASMA"
+    }
+   ],
+   "itemsToReview": []
+  },
+  {
+   "activity": "CHEMISTRY",
+   "bc": "Carbon Dioxide Concentration in Serum or Plasma",
+   "bcCode": "C64545",
+   "sdtmSpecialization": "CO2SERPL",
+   "crfSpecialization": "CO2BLD_DENORMALIZED",
+   "crfNativeSdtmSpecialization": "CO2BLD",
+   "overrides": [
+    {
+     "item": "CO2_LBSPEC",
+     "field": "prepopulated value",
+     "from": "BLOOD",
+     "to": "SERUM OR PLASMA"
+    }
+   ],
+   "itemsToReview": []
+  },
+  {
+   "activity": "CHEMISTRY",
+   "bc": "Glucose Concentration in Serum or Plasma",
+   "bcCode": "C105585",
+   "sdtmSpecialization": "GLUCSERPL",
+   "crfSpecialization": "GLUCBLD_DENORMALIZED",
+   "crfNativeSdtmSpecialization": "GLUCBLD",
+   "overrides": [
+    {
+     "item": "GLUC_LBSPEC",
+     "field": "prepopulated value",
+     "from": "BLOOD",
+     "to": "SERUM"
+    },
+    {
+     "item": "GLUC_LBORRESU",
+     "field": "value list",
+     "from": "mg/dL;mmol/L",
+     "to": "mg/dL;g/L;mmol/L"
+    }
+   ],
+   "itemsToReview": [
+    "GLUC_LBMETHOD"
+   ]
+  },
+  {
+   "activity": "CHEMISTRY",
+   "bc": "Calcium Concentration in Serum or Plasma",
+   "bcCode": "C64488",
+   "sdtmSpecialization": "CASERPL",
+   "crfSpecialization": "CABLD_DENORMALIZED",
+   "crfNativeSdtmSpecialization": "CABLD",
+   "overrides": [
+    {
+     "item": "CA_LBSPEC",
+     "field": "prepopulated value",
+     "from": "BLOOD",
+     "to": "SERUM OR PLASMA"
+    }
+   ],
+   "itemsToReview": []
+  },
+  {
+   "activity": "URINALYSIS",
+   "bc": "Protein Presence in Urine",
+   "bcCode": "C64858",
+   "sdtmSpecialization": "PROTURINPRES",
+   "crfSpecialization": "PROTURIN_DENORMALIZED",
+   "crfNativeSdtmSpecialization": "PROTURIN",
+   "overrides": [
+    {
+     "item": "PROT_LBORRES",
+     "field": "data type",
+     "from": "decimal",
+     "to": "text"
+    }
+   ],
+   "itemsToReview": [
+    "PROT_LBORRESU"
+   ]
+  },
+  {
+   "activity": "URINALYSIS",
+   "bc": "Glucose Presence in Urine",
+   "bcCode": "C105585",
+   "sdtmSpecialization": "GLUCURINPRES",
+   "crfSpecialization": "GLUCURIN_DENORMALIZED",
+   "crfNativeSdtmSpecialization": "GLUCURIN",
+   "overrides": [
+    {
+     "item": "GLUC_LBCAT",
+     "field": "prepopulated value",
+     "from": "CHEMISTRY",
+     "to": "URINALYSIS"
+    },
+    {
+     "item": "GLUC_LBORRES",
+     "field": "data type",
+     "from": "decimal",
+     "to": "text"
+    }
+   ],
+   "itemsToReview": [
+    "GLUC_LBORRESU"
+   ]
+  },
+  {
+   "activity": "URINALYSIS",
+   "bc": "Ketone Presence in Urine",
+   "bcCode": "C64854",
+   "sdtmSpecialization": "KETONESURINPRES",
+   "crfSpecialization": "KETONESURIN_DENORMALIZED",
+   "crfNativeSdtmSpecialization": "KETONESURIN",
+   "overrides": [
+    {
+     "item": "KETONES_LBORRES",
+     "field": "data type",
+     "from": "decimal",
+     "to": "text"
+    }
+   ],
+   "itemsToReview": [
+    "KETONES_LBORRESU"
+   ]
+  },
+  {
+   "activity": "URINALYSIS",
+   "bc": "Nitrite Presence in Urine",
+   "bcCode": "C64810",
+   "sdtmSpecialization": "NITRITEURINPRES",
+   "crfSpecialization": "NITRITEURIN_DENORMALIZED",
+   "crfNativeSdtmSpecialization": "NITRITEURIN",
+   "overrides": [
+    {
+     "item": "NITRITE_LBORRES",
+     "field": "data type",
+     "from": "decimal",
+     "to": "text"
+    }
+   ],
+   "itemsToReview": [
+    "NITRITE_LBORRESU"
+   ]
+  }
+ ],
+ "usdm_blank_fields": [
+  {
+   "field": "StudyDesign.therapeuticAreas",
+   "fallback": "StudyVersion.businessTherapeuticAreas"
+  },
+  {
+   "field": "StudyDesign.indications",
+   "note": "Healthy-volunteer study"
+  },
+  {
+   "field": "StudyDesign.intentTypes",
+   "note": "TINDTP not derivable"
+  }
+ ]
+}

@@ -1,0 +1,9 @@
+# secrets & local state
+app/config.json
+app/cache/
+__pycache__/
+*.pyc
+.DS_Store
+~$*.xlsx
+# P21 environment exports (SDTMIG / CT content with P21 internalIds) - not published; drop your own into app/p21_exports/
+app/p21_exports/*.json

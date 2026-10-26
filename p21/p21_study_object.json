@@ -1,0 +1,43 @@
+{
+ "studyObject": {
+  "ProtocolTitle": "A Phase 1, Randomised, Double-Blind, Placebo-Controlled, Single Ascending Dose Study to Evaluate the Safety, Tolerability and Pharmacokinetics of CTX-101 in Healthy Adult Participants",
+  "ClinicalTrialsGovId": "NCT09999999",
+  "EudraCTNumber": "",
+  "ProtocolId": "CTX101-001",
+  "Phase": "PHASE I TRIAL",
+  "TrialType": [
+   "Safety Study",
+   "Tolerability Study",
+   "Pharmacokinetic Study"
+  ],
+  "Indication": [],
+  "TherapeuticArea": [
+   "Immunology"
+  ],
+  "Project": "<user-selected existing P21 project>",
+  "usdmVersion": "4.0.0",
+  "customAttribute": {
+   "generatedBy": "USDM-P21 POC",
+   "generatedAt": "2026-10-26T11:09:28",
+   "usdmStudy": "CTX101-001"
+  }
+ },
+ "dataPackages": [
+  {
+   "Name": "CTX101-001 Form Spec",
+   "Project": "<same>",
+   "Study": "CTX101-001",
+   "Standard": "CDASHIG (latest)",
+   "ControlledTerminology": "inherited from CDASH",
+   "Engine": null
+  },
+  {
+   "Name": "SDTM",
+   "Project": "<same>",
+   "Study": "CTX101-001",
+   "Standard": "SDTMIG 3.4 (specId 5296)",
+   "ControlledTerminology": "SDTM-CT 2026-03-27 (specId 28040)",
+   "Engine": "default"
+  }
+ ]
+}

@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>USDM → P21 Workbench (POC)</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;background:#f0f2f5;color:#1a1a2e;font-size:13px}
+header{background:linear-gradient(135deg,#1a1a2e,#16213e);color:#fff;padding:14px 28px;display:flex;align-items:center;gap:16px;box-shadow:0 2px 12px rgba(0,0,0,.3)}
+.logo{font-size:11px;font-weight:700;letter-spacing:2px;color:#4fc3f7;text-transform:uppercase}
+header>div:first-child{min-width:0;flex:1}
+header h1{font-size:17px;font-weight:600;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+@media(max-width:900px){header{flex-wrap:wrap}.badge{margin-left:0;white-space:normal}}
+header .meta{font-size:12px;color:#90caf9;margin-top:2px}
+.badge{margin-left:auto;background:rgba(79,195,247,.15);border:1px solid #4fc3f7;color:#4fc3f7;font-size:11px;font-weight:600;padding:4px 10px;border-radius:20px;white-space:nowrap}
+.steps{background:#fff;padding:0 28px;border-bottom:2px solid #e0e0e0;display:flex;gap:4px}
+.step{padding:12px 18px;font-size:13px;font-weight:600;color:#999;cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px;display:flex;align-items:center;gap:8px}
+.step .n{width:22px;height:22px;border-radius:50%;background:#e0e0e0;color:#666;display:inline-flex;align-items:center;justify-content:center;font-size:11px}
+.step.active{color:#1565c0;border-bottom-color:#1565c0}.step.active .n{background:#1565c0;color:#fff}
+.step.done .n{background:#2e7d32;color:#fff}
+.step.disabled{opacity:.45;pointer-events:none}
+.panel{display:none;padding:18px 24px}.panel.active{display:block}
+.card{background:#fff;border-radius:8px;box-shadow:0 1px 6px rgba(0,0,0,.08);padding:18px 20px;margin-bottom:14px}
+.card h2{font-size:15px;margin-bottom:10px}
+.muted{color:#777;font-size:12px}
+button,.btn{font:inherit;font-size:12px;font-weight:600;border:1px solid #1565c0;background:#fff;color:#1565c0;border-radius:5px;padding:6px 12px;cursor:pointer;white-space:nowrap}
+button.primary{background:#1565c0;color:#fff}
+button:hover{filter:brightness(.95)}
+button:disabled{opacity:.4;cursor:default}
+.drop{border:2px dashed #90a4ae;border-radius:8px;padding:28px;text-align:center;color:#607d8b;background:#fafcff}
+.drop.over{border-color:#1565c0;background:#e3f2fd}
+.kv{display:grid;grid-template-columns:200px 1fr;gap:4px 14px;font-size:12.5px;margin-top:8px}
+.kv b{color:#555;font-weight:600}
+.stats{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
+.stat{background:#f5f7fb;border:1px solid #e3e8f0;border-radius:6px;padding:8px 12px;min-width:110px}
+.stat .v{font-size:20px;font-weight:700;color:#1a237e}.stat .l{font-size:11px;color:#666}
+/* toolbar */
+.toolbar{background:#fff;border-radius:8px 8px 0 0;padding:9px 14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;border-bottom:1px solid #e0e0e0;position:sticky;top:0;z-index:30}
+.toolbar input[type=text]{border:1px solid #ccc;border-radius:4px;padding:5px 9px;font-size:12px;width:200px}
+.seg{display:inline-flex;border:1px solid #1565c0;border-radius:5px;overflow:hidden}
+.seg span{padding:5px 11px;font-size:12px;font-weight:600;color:#1565c0;cursor:pointer}
+.seg span.on{background:#1565c0;color:#fff}
+.chip{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;padding:3px 9px;border-radius:12px;border:1px solid #ddd;cursor:pointer;background:#fff}
+.chip.on{outline:2px solid #1565c0}
+.st-exact{color:#2e7d32}.st-cross{color:#ef6c00}.st-sdtm-only{color:#1565c0}.st-none{color:#c62828}.st-sur{color:#78909c}
+.ico{font-weight:800;width:16px;display:inline-block;text-align:center}
+/* SoA */
+.soa-wrap{background:#fff;border-radius:0 0 8px 8px;overflow:auto;max-height:calc(100vh - 230px);box-shadow:0 1px 6px rgba(0,0,0,.08)}
+table.soa{border-collapse:separate;border-spacing:0;font-size:11.5px;min-width:100%}
+table.soa th,table.soa td{border-right:1px solid #e3e3e3;border-bottom:1px solid #e3e3e3}
+table.soa thead th{position:sticky;z-index:10}
+tr.h1 th{top:0;background:#1a1a2e;color:#fff;font-size:10px;padding:5px 4px;text-align:center;letter-spacing:.3px}
+tr.h2 th{top:24px;background:#253570;color:#d8e4ff;font-size:10.5px;padding:5px 4px;text-align:center;font-weight:700;white-space:nowrap}
+tr.h3 th{top:49px;background:#2d3f80;color:#9fb0e0;font-size:9.5px;font-style:italic;padding:3px 4px;text-align:center;white-space:nowrap}
+table.soa th.c0,table.soa td.c0{position:sticky;left:0;z-index:5;text-align:left}
+table.soa thead th.c0{z-index:20}
+td.c0{background:#fafafa;min-width:470px;max-width:470px;border-right:2px solid #bbb!important}
+tr.act td.c0{padding:6px 8px;font-weight:600;cursor:pointer}
+tr.act:hover td{background:#eef4ff}
+tr.grp td{background:#37474f;color:#fff;font-weight:700;font-size:10px;letter-spacing:.6px;text-transform:uppercase;padding:4px 10px}
+tr.grp td.c0{background:#37474f}
+td.dot{text-align:center;min-width:46px;color:#1565c0;font-size:13px}
+tr.bc td{background:#fbfcff}
+tr.bc td.c0{background:#fbfcff;padding:4px 8px 5px 26px;font-weight:400}
+tr.bc td.dot{color:#9fb7e6;font-size:9px}
+tr.bc.sur td.c0{color:#78909c;font-style:italic}
+.caret{display:inline-block;width:14px;color:#888;transition:transform .15s}
+.open .caret{transform:rotate(90deg)}
+.pill{font-size:9.5px;font-weight:700;padding:1px 6px;border-radius:8px;margin-left:6px;vertical-align:middle;background:#e8eaf6;color:#3949ab}
+.pill.ok{background:#e8f5e9;color:#2e7d32}.pill.warn{background:#fff3e0;color:#ef6c00}.pill.bad{background:#ffebee;color:#c62828}
+.bcname{cursor:pointer;color:#1a237e}.bcname:hover{text-decoration:underline}
+.code{font-size:10px;color:#888;margin-left:4px}
+.selrow{display:flex;gap:6px;margin-top:3px;align-items:center}
+.selrow select{font-size:11px;padding:2px 3px;border:1px solid #c5cae9;border-radius:4px;max-width:205px;background:#fff}
+.selrow select.sdtm{border-left:3px solid #3949ab}.selrow select.crf{border-left:3px solid #00897b}
+.selrow label{font-size:10px;color:#666;display:flex;align-items:center;gap:3px}
+.unconf select{background:#fffde7}
+/* table view */
+table.grid{border-collapse:collapse;width:100%;font-size:12px;background:#fff}
+table.grid th{background:#253570;color:#fff;text-align:left;padding:6px 8px;position:sticky;top:0;font-size:11px;z-index:2}
+table.grid td{border-bottom:1px solid #eee;padding:5px 8px;vertical-align:top}
+table.grid tr:hover td{background:#f5f8ff}
+table.grid select{font-size:11.5px;max-width:330px}
+/* drawer */
+#drawer{position:fixed;top:0;right:-640px;width:620px;height:100vh;background:#fff;box-shadow:-4px 0 18px rgba(0,0,0,.2);z-index:100;transition:right .2s;overflow:auto;padding:18px 20px}
+#drawer.open{right:0}
+#drawer h3{font-size:15px;margin-bottom:4px}
+#drawer h4{font-size:12px;margin:14px 0 6px;color:#1a237e;text-transform:uppercase;letter-spacing:.5px}
+#drawer table{border-collapse:collapse;width:100%;font-size:11px}
+#drawer td,#drawer th{border-bottom:1px solid #eee;padding:3px 5px;text-align:left;vertical-align:top}
+#drawer th{background:#f0f2f8;font-weight:600}
+.cand{border:1px solid #e0e0e0;border-radius:6px;padding:6px 9px;margin-bottom:5px;cursor:pointer;display:flex;gap:8px;align-items:center}
+.cand.sel{border-color:#1565c0;background:#e3f2fd}
+.cand .sc{margin-left:auto;font-size:10px;color:#888}
+.x{position:absolute;right:16px;top:12px;border:none;font-size:20px;color:#888;background:none}
+/* generate */
+.opts{display:flex;gap:18px;flex-wrap:wrap;align-items:center}
+.exports{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px;margin-top:12px}
+.exp{border:1px solid #e0e6f0;border-radius:8px;padding:12px;background:#fafcff}
+.exp b{display:block;font-size:13px;margin-bottom:3px}.exp p{font-size:11.5px;color:#666;margin-bottom:8px;min-height:30px}
+.subtabs{display:flex;gap:2px;border-bottom:1px solid #ddd;margin:12px 0 0}
+.subtabs span{padding:7px 12px;font-size:12px;font-weight:600;color:#777;cursor:pointer;border-bottom:2px solid transparent}
+.subtabs span.on{color:#1565c0;border-bottom-color:#1565c0}
+.prev{max-height:460px;overflow:auto;border:1px solid #e3e3e3;border-top:none}
+.prev table{border-collapse:collapse;font-size:11px;width:100%}
+.prev th{background:#f0f2f8;position:sticky;top:0;text-align:left;padding:4px 6px;white-space:nowrap}
+.prev td{border-bottom:1px solid #f0f0f0;padding:3px 6px;vertical-align:top;max-width:420px}
+.warnbox{background:#fff8e1;border:1px solid #ffe082;border-radius:6px;padding:8px 12px;font-size:12px;margin-top:10px}
+.hint{font-size:11.5px;color:#555;background:#eef3fb;border-radius:6px;padding:8px 12px;margin:0 0 10px}
+/* dashboard */
+.dash-head{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fill,minmax(165px,1fr));gap:10px;margin-bottom:14px}
+.kpi{background:#fff;border-radius:8px;box-shadow:0 1px 6px rgba(0,0,0,.08);padding:12px 14px;border-top:4px solid #1565c0}
+.kpi .v{font-size:24px;font-weight:700;color:#1a237e}.kpi .l{font-size:11.5px;color:#555;margin-top:2px}.kpi .s{font-size:11px;color:#888;margin-top:4px}
+.kpi.g{border-top-color:#2e7d32}.kpi.a{border-top-color:#ef6c00}.kpi.r{border-top-color:#c62828}
+.dgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:14px}
+@media(min-width:1150px){.dgrid{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:1149px){.span2{grid-column:1/-1}}
+.dgrid .card{margin-bottom:0}@media(min-width:1150px){.span2{grid-column:span 2}}.span3{grid-column:span 3}
+.card h3{font-size:13px;margin-bottom:10px;color:#1a237e}
+.hb{display:grid;grid-template-columns:minmax(110px,190px) 1fr 40px;align-items:center;gap:8px;font-size:11.5px;margin:3px 0}
+.hb .lab{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#333}
+.hb .bar{display:flex;height:14px;border-radius:3px;overflow:hidden;background:#f1f3f6}
+.hb .bar span{display:block;height:100%}
+.hb .n{font-size:11px;color:#666;text-align:right}
+.legend{display:flex;gap:12px;font-size:11px;color:#555;margin-bottom:8px;flex-wrap:wrap}.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:4px;vertical-align:-1px}
+.donut{display:flex;align-items:center;gap:16px}
+.fbar{display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap}
+.fgroup{border:1px solid #e6e8ee;border-radius:6px;margin-bottom:6px;overflow:hidden}
+.fgroup summary{padding:7px 10px;cursor:pointer;display:flex;gap:8px;align-items:center;font-size:12.5px;font-weight:600;background:#fafbfd}
+.fgroup summary .cnt{margin-left:auto;font-size:11px;color:#666;font-weight:600}
+.sev{font-size:10px;font-weight:700;padding:2px 7px;border-radius:9px;text-transform:uppercase;letter-spacing:.4px}
+.sev.gap{background:#ffebee;color:#c62828}.sev.review{background:#fff3e0;color:#ef6c00}.sev.info{background:#e3f2fd;color:#1565c0}
+.fgroup .why{font-size:11.5px;color:#555;padding:6px 10px 0}
+.fgroup table{border-collapse:collapse;width:100%;font-size:11px;margin:6px 0 8px}
+.fgroup th{background:#f0f2f8;text-align:left;padding:3px 8px;font-weight:600}.fgroup td{border-bottom:1px solid #f1f1f1;padding:3px 8px;vertical-align:top}
+.chiplist{display:flex;flex-wrap:wrap;gap:4px}.chiplist span{font-size:10.5px;padding:2px 7px;border-radius:9px;background:#f1f3f6;color:#444}
+.chiplist span.ok{background:#e8f5e9;color:#2e7d32}.chiplist span.miss{background:#ffebee;color:#c62828}
+@media print{header,.steps,.dash-head button,#drawer{display:none!important}.panel{display:none!important}#p-dash{display:block!important;padding:0}.card,.kpi{box-shadow:none;border:1px solid #ddd}details{break-inside:avoid}details:not([open]) > *:not(summary){display:block}}
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <div class="logo">P21 MDR · USDM Workbench · local POC</div>
+    <h1 id="h-title">USDM → P21 study artefacts</h1>
+    <div class="meta" id="h-meta">Load a USDM v4 JSON to begin</div>
+  </div>
+  <div class="badge" id="h-badge"></div>
+</header>
+<div class="steps">
+  <div class="step active" id="st-load" onclick="go('load')"><span class="n">1</span>Load USDM</div>
+  <div class="step" id="st-std" onclick="go('std')"><span class="n">2</span>Standard &amp; terminology</div>
+  <div class="step disabled" id="st-map" onclick="go('map')"><span class="n">3</span>Map specializations</div>
+  <div class="step disabled" id="st-gen" onclick="go('gen')"><span class="n">4</span>Generate &amp; export</div>
+  <div class="step disabled" id="st-dash" onclick="go('dash')"><span class="n">5</span>Report dashboard</div>
+</div>
+
+<!-- 1 LOAD -->
+<div class="panel active" id="p-load">
+  <div class="card">
+    <h2>Load a USDM study</h2>
+    <div class="drop" id="drop">
+      <div style="font-size:15px;font-weight:600;margin-bottom:6px">Drop a USDM v4 JSON here</div>
+      <div class="muted">or <label style="color:#1565c0;cursor:pointer;font-weight:600"><input type="file" id="file" accept=".json" style="display:none">browse…</label>
+        &nbsp;·&nbsp; <a href="#" id="sample" style="color:#1565c0;font-weight:600">load sample CTX101-001 (no extensions)</a></div>
+      <div class="muted" style="margin-top:10px">A USDM that already carries specialization extensions is restored as confirmed selections (round-trip).</div>
+    </div>
+  </div>
+  <div class="card" id="studycard" style="display:none"></div>
+</div>
+
+<!-- 2 STANDARD & TERMINOLOGY -->
+<div class="panel" id="p-std">
+  <div class="card">
+    <h2>P21 Enterprise connection <span id="modepill" class="pill"></span></h2>
+    <div class="kv" style="grid-template-columns:160px 1fr;align-items:center">
+      <b>P21E root URL</b><input id="cf-url" type="text" placeholder="https://my-company.pinnacle21.com" style="padding:5px 8px;width:420px">
+      <b>API key</b><span><input id="cf-key" type="password" placeholder="paste User API Key (Profile › API Key)" style="padding:5px 8px;width:420px">
+        <label class="muted" style="margin-left:8px"><input type="checkbox" id="cf-rem"> remember on this PC (config.json)</label></span>
+      <b></b><span><button onclick="saveCfg()">Save</button> <button onclick="testCfg()">Test connection</button> <button onclick="clearKey()">Use offline exports</button>
+        <span id="cf-msg" class="muted" style="margin-left:8px"></span></span>
+    </div>
+    <div class="muted" style="margin-top:8px">The key is sent only to the local server (127.0.0.1), which calls the read-only P21E API with Basic auth. Without a key the app reads exports placed in <code>p21_exports/</code>.</div>
+  </div>
+  <div class="card">
+    <h2>Select master standard, terminology and form library</h2>
+    <div class="kv" style="grid-template-columns:160px 1fr;align-items:center">
+      <b>SDTM standard</b><select id="sel-std" style="padding:4px;max-width:560px"></select>
+      <b>Controlled terminology</b><select id="sel-ct" style="padding:4px;max-width:560px"></select>
+      <b>Form library <span class="muted">(optional)</span></b><select id="sel-form" style="padding:4px;max-width:560px"></select>
+      <b>Options</b><span><label><input type="checkbox" id="opt-pub"> use published version</label> &nbsp; <label><input type="checkbox" id="opt-ref"> refresh cache</label></span>
+    </div>
+    <div style="margin-top:12px"><button class="primary" id="btn-master" onclick="loadMaster()">Load selection</button> <button onclick="refreshLists()">Reload lists</button>
+      <span id="ms-msg" class="muted" style="margin-left:8px"></span></div>
+    <div class="stats" id="ms-stats"></div>
+  </div>
+</div>
+
+<!-- 3 MAP -->
+<div class="panel" id="p-map">
+  <div class="hint">Select the SDTM dataset specialization and CRF specialization for each Biomedical Concept. Suggestions use the BC code plus the
+    <b>activity context</b> (e.g. Glucose under <i>Urinalysis</i> → urine presence test). Changing a selection confirms it; use <b>Confirm all</b> to accept the remaining suggestions.
+    Click a BC name for candidate details.</div>
+  <div class="toolbar">
+    <div class="seg"><span id="v-soa" class="on" onclick="setView('soa')">SoA view</span><span id="v-tab" onclick="setView('tab')">Table view</span></div>
+    <input type="text" id="flt" placeholder="Filter activity / BC / specialization…" oninput="render()">
+    <span id="chips"></span>
+    <span style="margin-left:auto;display:flex;gap:6px">
+      <button onclick="expandAll(true)">Expand all</button><button onclick="expandAll(false)">Collapse</button>
+      <button onclick="doSuggest(false)" title="Fill only BCs with no selection">Suggest unmapped</button>
+      <button onclick="suggestForms(true);render()" title="Pick the best-matching library form per activity">Suggest library forms</button>
+      <button onclick="confirmAll()" class="primary">Confirm all</button>
+      <button onclick="go('gen')" class="primary">Next ›</button>
+    </span>
+  </div>
+  <div class="soa-wrap" id="mapview"></div>
+</div>
+
+<!-- 3 GENERATE -->
+<div class="panel" id="p-gen">
+  <div class="card">
+    <h2>Generate P21 artefacts</h2>
+    <div class="opts">
+      <label><input type="checkbox" id="o-mand" checked> Mandatory specialization variables only</label>
+      <label><input type="checkbox" id="o-vlm" checked> Value-level metadata</label>
+      <span class="muted" id="o-std"></span>
+      <button class="primary" onclick="runGen()">Generate</button>
+    </div>
+    <div id="genwarn"></div>
+    <div class="stats" id="genstats"></div>
+    <div class="exports" id="exports" style="display:none">
+      <div class="exp"><b>Extended USDM</b><p>Original USDM + SoA-Workbench specialization extensions + hidden P21 link extensions.</p><button onclick="dl('usdm')">Download .json</button></div>
+      <div class="exp"><b>SDTM define spec</b><p>Datasets, variables, value-level, study codelists &amp; terms (P21 internalIds as provenance).</p><button onclick="dl('define')">Download .xlsx</button> <button onclick="dl('definejson')">.json</button></div>
+      <div class="exp"><b>CRF form spec</b><p>Events, forms, SoA, questions, codelists &amp; terms from CRF specializations.</p><button onclick="dl('form')">Download .xlsx</button> <button onclick="dl('formjson')">.json</button></div>
+      <div class="exp"><b>TS / trial design</b><p>TS parameters (+ TA, TE, TV, TI) derived from USDM, with TS gaps.</p><button onclick="dl('ts')">Download .xlsx</button></div>
+      <div class="exp"><b>Generation report</b><p>Coverage gaps, cross-matches, deferred codelists, surrogates.</p><button class="primary" onclick="go('dash')">Open dashboard</button> <button onclick="dl('report')">.json</button></div>
+    </div>
+    <div id="previews" style="display:none">
+      <div class="subtabs" id="subtabs"></div>
+      <div class="prev" id="prev"></div>
+    </div>
+  </div>
+</div>
+
+<!-- 5 DASHBOARD -->
+<div class="panel" id="p-dash">
+  <div class="dash-head">
+    <div><h2 id="dh-title" style="font-size:17px">Generation report</h2><div class="muted" id="dh-sub"></div></div>
+    <span style="margin-left:auto;display:flex;gap:6px"><button onclick="go('map')">‹ Back to mapping</button><button onclick="dl('report')">Report .json</button><button onclick="window.print()">Print / PDF</button></span>
+  </div>
+  <div class="kpis" id="d-kpis"></div>
+  <div class="dgrid">
+    <div class="card span2"><h3>Biomedical concept coverage by activity</h3><div class="legend" id="d-leg1"></div><div id="d-cov"></div></div>
+    <div class="card"><h3>Form source</h3><div id="d-forms"></div></div>
+    <div class="card"><h3>Study terminology cut</h3><div id="d-ct"></div></div>
+    <div class="card"><h3>SDTM define by domain</h3><div id="d-dom"></div></div>
+    <div class="card"><h3>Trial Summary (TS) coverage</h3><div id="d-ts"></div></div>
+  </div>
+  <div class="card"><h3>Findings <span class="muted" id="d-fcount"></span></h3>
+    <div class="fbar" id="d-ffilter"></div><div id="d-find"></div></div>
+</div>
+
+<div id="drawer"><button class="x" onclick="closeDrawer()">×</button><div id="dbody"></div></div>
+
+<script src="engine.js"></script>
+<script>
+let CAT = null, DATA = null, E = null, SAMPLE = null, MASTER_OK = false, FORMSRC = {}, LIBNAME = '';
+let M = null, SEL = {}, VIEW = 'soa', OPEN = new Set(), STATUS_FILTER = null, G = null, FNAME = 'study', SUBTAB = 'vars';
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+const api = async (path, body) => { const r = await fetch(path, body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : {});
+  const j = await r.json(); if (!r.ok || j.error) throw new Error(j.error || r.statusText); return j; };
+function setBadge() { $('h-badge').textContent = DATA ? `${DATA.std.name} ${DATA.std.version} · ${DATA.ct.name} ${DATA.ct.version}${LIBNAME ? ' · Forms: ' + LIBNAME : ''} · COSMoS ${Object.keys(CAT.sdtm).length} SDTM / ${Object.keys(CAT.crf).length} CRF specs` : 'Select standard & terminology';
+  if (DATA) $('o-std').textContent = `Master: ${DATA.std.name} ${DATA.std.version} (specId ${DATA.std.specId}) · CT ${DATA.ct.version} (specId ${DATA.ct.specId})`; }
+async function boot() {
+  CAT = await api('/app/catalogue'); setBadge();
+  const c = await api('/app/config'); $('cf-url').value = c.base_url || ''; $('cf-rem').checked = c.remember; if (c.has_key) $('cf-key').placeholder = '•••••••• (key set)';
+  showMode(c.mode); refreshLists();
+}
+function showMode(m) { $('modepill').textContent = m === 'online' ? 'online · P21E API' : 'offline · local exports'; $('modepill').className = 'pill ' + (m === 'online' ? 'ok' : 'warn'); }
+async function saveCfg() { try { const r = await api('/app/config', { base_url: $('cf-url').value, api_key: $('cf-key').value, remember: $('cf-rem').checked });
+  $('cf-key').value = ''; if (r.mode === 'online') $('cf-key').placeholder = '•••••••• (key set)'; showMode(r.mode); $('cf-msg').textContent = 'Saved'; refreshLists(); } catch (e) { $('cf-msg').textContent = e.message; } }
+async function clearKey() { await api('/app/config', { base_url: $('cf-url').value, clear_key: true, remember: false }); $('cf-key').placeholder = 'paste User API Key (Profile › API Key)'; showMode('offline'); refreshLists(); }
+async function testCfg() { $('cf-msg').textContent = 'Testing…'; try { const r = await api('/app/test'); $('cf-msg').textContent = r.message; showMode(r.mode); } catch (e) { $('cf-msg').textContent = '✕ ' + e.message; } }
+async function refreshLists() {
+  $('ms-msg').textContent = 'Loading lists…';
+  const fill = (id, items, filt, none) => { const el = $(id), prev = el.value; const it = items.filter(filt);
+    el.innerHTML = (none ? `<option value="">${none}</option>` : '') + it.map(x => `<option value="${esc(x.id)}">${esc(x.name)} ${esc(x.version)}${x.status ? ' · ' + esc(x.status) : ''} (id ${esc(x.id)}${x.file ? ' · ' + esc(x.file) : ''})</option>`).join('');
+    if (prev && it.some(x => x.id === prev)) el.value = prev; return it.length; };
+  try {
+    const [s, t, f] = await Promise.all([api('/app/standards'), api('/app/terminologies'), api('/app/forms').catch(() => ({ items: [] }))]);
+    const ns = fill('sel-std', s.items, x => /SDTM/i.test((x.type || '') + ' ' + x.name) && !/SEND|ADAM|CDASH/i.test(x.name));
+    const nt = fill('sel-ct', t.items, x => /SDTM/i.test((x.type || '') + ' ' + x.name));
+    fill('sel-form', f.items, () => true, '— none: write CRF specializations directly (COSMoS) —');
+    showMode(s.mode); $('ms-msg').textContent = `${ns} SDTM standards · ${nt} SDTM terminologies · ${f.items.length} form specs (${s.mode})`;
+  } catch (e) { $('ms-msg').textContent = '✕ ' + e.message; }
+}
+async function loadMaster() {
+  const sid = $('sel-std').value, tid = $('sel-ct').value, fid = $('sel-form').value; if (!sid || !tid) { $('ms-msg').textContent = 'Select a standard and a terminology'; return; }
+  $('btn-master').disabled = true; $('ms-msg').textContent = 'Exporting from P21 and building the study master… (terminology exports can take a while)';
+  try {
+    const m = await api('/app/master', { standardId: sid, terminologyId: tid, published: $('opt-pub').checked, refresh: $('opt-ref').checked });
+    DATA = Object.assign({}, CAT, m); E = new Engine(DATA); MASTER_OK = true; LIBNAME = '';
+    if (fid) { const lib = await api('/app/formlib', { formId: fid, published: $('opt-pub').checked, refresh: $('opt-ref').checked });
+      LIBNAME = $('sel-form').selectedOptions[0].textContent.split(' (id')[0]; E.setFormLibrary(lib, LIBNAME); }
+    const excluded = Object.keys(CAT.sdtm).filter(k => !E.versionOk(k)).length;
+    $('ms-stats').innerHTML = [['Datasets', Object.keys(m.datasets).length], ['Variables', Object.values(m.vars).reduce((a, v) => a + v.length, 0)], ['Codelists', Object.keys(m.codelists).length],
+      ['Terms (subset)', Object.values(m.terms).reduce((a, v) => a + v.length, 0)], ['Specs outside SDTMIG range', excluded], ['Library forms', E.lib ? Object.keys(E.lib.formById).length : 0]]
+      .map(x => `<div class="stat"><div class="v">${x[1]}</div><div class="l">${x[0]}</div></div>`).join('');
+    $('ms-msg').textContent = `Loaded in ${m.elapsed}s (${m.mode})`; setBadge(); $('st-std').classList.add('done');
+    if (M) afterMaster();
+  } catch (e) { $('ms-msg').textContent = '✕ ' + e.message; } finally { $('btn-master').disabled = false; }
+}
+function afterMaster() {
+  M = E.parse(M.u);
+  for (const id in SEL) { const s = SEL[id]; if (s.sdtm && (!DATA.sdtm[s.sdtm] || !E.versionOk(s.sdtm))) { s.sdtm = ''; s.crf = ''; s.confirmed = false; } }
+  E.suggest(M, SEL, false); suggestForms(false); G = null;
+  ['map', 'gen'].forEach(x => $('st-' + x).classList.remove('disabled'));
+}
+function suggestForms(all) { if (!E || !E.lib) return; M.activities.forEach(x => { if (FORMSRC[x.a.id] && !all) return; const c = E.libraryCandidates(M, x, SEL)[0]; if (c && c.hit / c.of >= 0.5) FORMSRC[x.a.id] = 'lib:' + c.id; }); }   // suggest only when the library form covers at least half the activity's BCs
+function formSelect(x) {
+  if (!E || !E.lib || !x.bcIds.length) return ''; const cands = E.libraryCandidates(M, x, SEL), cur = FORMSRC[x.a.id] || '';
+  return `<select onclick="event.stopPropagation()" onchange="FORMSRC['${x.a.id}']=this.value;G=null;render()" title="Form source" style="font-size:10.5px;margin-left:8px;max-width:230px;border-left:3px solid #6a1b9a">
+    <option value="">COSMoS direct</option>${cands.map(c => `<option value="lib:${esc(c.id)}" ${cur === 'lib:' + c.id ? 'selected' : ''}>📚 ${esc(c.name)} (${c.hit}/${c.of} BCs)</option>`).join('')}
+    ${cur.startsWith('lib:') && !cands.some(c => 'lib:' + c.id === cur) ? `<option selected value="${esc(cur)}">📚 ${esc(cur.slice(4))}</option>` : ''}</select>`;
+}
+/* ---------- report dashboard ---------- */
+const FINDINGS = {
+  bc_without_sdtm_specialization: ['gap', 'BCs without an SDTM dataset specialization', 'Not in the study define; author manually or pick a specialization in step 3.'],
+  codelist_not_in_terminology: ['gap', 'Codelists not in the selected terminology', 'Referenced by a specialization or the standard but absent from the chosen CT version.'],
+  term_not_in_nonextensible_codelist: ['gap', 'Terms not in a non-extensible codelist', 'Value cannot be added to a closed codelist.'],
+  bc_not_in_library_form_no_fallback: ['gap', 'BCs missing from the library form (no COSMoS fallback)', 'No question will collect these.'],
+  domain_not_in_master_standard: ['gap', 'Domains not in the master standard', ''],
+  specialization_variable_not_in_master: ['gap', 'Specialization variables not in the master standard', 'Likely SUPP-- or a version mismatch.'],
+  selections_not_confirmed: ['review', 'Suggested specializations not confirmed', 'Applied as suggested; confirm in step 3.'],
+  crf_specialization_user_selected_cross_match: ['review', 'CRF specialization cross-matched to a different SDTM specialization', 'Form items reconciled to the SDTM side; check overrides and items to review.'],
+  library_questions_not_required_by_usdm: ['review', 'Library questions for tests not in the USDM activity', 'Remove from the study form if not collected.'],
+  bc_not_in_library_form_cosmos_fallback: ['review', 'BCs not on the library form – COSMoS items appended', 'Consider adding to the sponsor library.'],
+  bc_without_crf_specialization: ['review', 'BCs without a CRF specialization', 'No COSMoS items; covered only if a library form collects them.'],
+  codelists_deferred_to_be_populated: ['review', 'Codelists deferred – to be populated', 'Extensible codelists used only by Record Qualifier shell variables (lab/sponsor specific).'],
+  codelist_unconstrained_usage_limited_to_resolved_terms: ['review', 'Unconstrained shell usage limited to resolved terms', ''],
+  sponsor_extended_terms: ['review', 'Sponsor-extended terms', 'Values not in CDISC CT added to extensible codelists.'],
+  retired_specializations_used: ['review', 'Retired specializations used', ''],
+  embedded_ct_subset_warning: ['review', 'Full codelist requested from a CT subset', ''],
+  ts_parameters_not_derivable_from_usdm: ['review', 'TS parameters not derivable from USDM', 'Populate manually in the TS dataset.'],
+  trial_design_blank_fields: ['info', 'Trial design fields left blank', ''],
+  bc_surrogates_excluded: ['info', 'BC surrogates excluded', 'No CDISC BC/specialization – excluded from define and forms.'],
+  full_codelists_included: ['info', 'Full codelists included', 'Referenced without constraint by a specialization, or closed codelists.'],
+  external_dictionaries: ['info', 'External dictionaries', 'MedDRA / WHODrug etc. – versions set at the define level.'],
+  library_forms_used: ['info', 'Library forms used', ''],
+};
+const SEVORDER = { gap: 0, review: 1, info: 2 }; let FSEV = null;
+const COL = { exact: '#2e7d32', cross: '#ef6c00', 'sdtm-only': '#1e88e5', none: '#c62828', sur: '#b0bec5', lib: '#6a1b9a', cosmos: '#00897b', noform: '#cfd8dc',
+  'assigned/value list': '#1565c0', 'full codelist': '#90a4ae', deferred: '#ffb300' };
+function donut(parts, size) {
+  const tot = parts.reduce((a, p) => a + p.v, 0) || 1, r = size / 2 - 8, c = 2 * Math.PI * r; let off = 0;
+  const arcs = parts.filter(p => p.v).map(p => { const len = p.v / tot * c, a = `<circle r="${r}" cx="${size / 2}" cy="${size / 2}" fill="none" stroke="${p.c}" stroke-width="16" stroke-dasharray="${len} ${c - len}" stroke-dashoffset="${-off}" transform="rotate(-90 ${size / 2} ${size / 2})"><title>${esc(p.l)}: ${p.v}</title></circle>`; off += len; return a; }).join('');
+  return `<div class="donut"><svg width="${size}" height="${size}">${arcs}<text x="50%" y="50%" text-anchor="middle" dy="6" font-size="18" font-weight="700" fill="#1a237e">${tot}</text></svg>
+    <div class="legend" style="flex-direction:column;gap:5px">${parts.map(p => `<span><i style="background:${p.c}"></i>${esc(p.l)} <b>${p.v}</b></span>`).join('')}</div></div>`;
+}
+const hbar = (lab, segs, total, max) => `<div class="hb"><span class="lab" title="${esc(lab)}">${esc(lab)}</span><span class="bar" style="width:${Math.max(4, total / max * 100)}%">${segs.filter(s => s.v)
+  .map(s => `<span style="width:${s.v / total * 100}%;background:${s.c}" title="${esc(s.l)}: ${s.v}"></span>`).join('')}</span><span class="n">${total}</span></div>`;
+function renderDashboard() {
+  const S = G.summary, R = G.report, d = G.define;
+  $('dh-title').textContent = `Generation report — ${G.studyid}`;
+  $('dh-sub').textContent = `${DATA.std.name} ${DATA.std.version} · ${DATA.ct.name} ${DATA.ct.version}${LIBNAME ? ' · Form library: ' + LIBNAME : ''} · options: ${$('o-mand').checked ? 'mandatory variables only' : 'all variables'}, VLM ${$('o-vlm').checked ? 'on' : 'off'} · ${new Date().toLocaleString()}`;
+  // per-activity coverage
+  const rows = M.activities.filter(x => x.bcIds.length || x.surIds.length).map(x => { const c = { exact: 0, cross: 0, 'sdtm-only': 0, none: 0 };
+    x.bcIds.forEach(id => c[statusOf(id)]++); c.sur = x.surIds.length; return { a: x.a, c, t: x.bcIds.length + x.surIds.length, x }; });
+  const tot = { exact: 0, cross: 0, 'sdtm-only': 0, none: 0, sur: 0 }; rows.forEach(r => Object.keys(tot).forEach(k => tot[k] += r.c[k]));
+  const nBC = Object.keys(M.bcById).length, withSdtm = nBC - tot.none;
+  const fsrc = { lib: 0, cosmos: 0, noform: 0 }; const formsByAct = {}; G.crf.forms.forEach(f => formsByAct[f.ID] = f.Source);
+  rows.filter(r => r.x.bcIds.length).forEach(r => { const f = (FORMSRC[r.a.id] || '').startsWith('lib:') ? 'lib' : G.crf.forms.some(ff => ff.ID === r.a.name) ? 'cosmos' : 'noform'; fsrc[f]++; });
+  const tsHave = new Set(G.td.TS.map(t => t.TSPARMCD)), tsMiss = (R.ts_parameters_not_derivable_from_usdm || []).map(x => x.TSPARMCD);
+  const masterTerms = DATA.ctTotalTerms || 0;
+  const nGap = Object.keys(R).filter(k => (FINDINGS[k] || [])[0] === 'gap').reduce((a, k) => a + R[k].length, 0);
+  const nRev = Object.keys(R).filter(k => (FINDINGS[k] || [])[0] === 'review').reduce((a, k) => a + R[k].length, 0);
+  const kpi = (v, l, s, cls) => `<div class="kpi ${cls || ''}"><div class="v">${v}</div><div class="l">${l}</div>${s ? `<div class="s">${s}</div>` : ''}</div>`;
+  $('d-kpis').innerHTML = [
+    kpi(`${Math.round(withSdtm / nBC * 100)}%`, 'BCs with SDTM specialization', `${withSdtm} of ${nBC} · ${tot.sur} surrogates`, withSdtm === nBC ? 'g' : 'a'),
+    kpi(`${Math.round((tot.exact + tot.cross) / nBC * 100)}%`, 'BCs with CRF specialization', `${tot.exact} exact · ${tot.cross} cross-matched`, ''),
+    kpi(S.datasets, 'SDTM datasets', `${S.variables} variables · ${S.vlmRows} VLM rows`),
+    kpi(S.terms, 'Study terms', `${S.codelists} codelists · ${masterTerms ? Math.round((1 - S.terms / masterTerms) * 1000) / 10 + '% cut from ' + masterTerms.toLocaleString() + ' CT terms' : ''}`),
+    kpi(S.questions, 'Form questions', `${S.forms} forms · ${fsrc.lib} from library`),
+    kpi(`${tsHave.size}/${tsHave.size + tsMiss.length}`, 'TS parameters derived', `${S.TS} TS rows`, tsMiss.length ? 'a' : 'g'),
+    kpi(nGap, 'Gaps', 'need action before use', nGap ? 'r' : 'g'), kpi(nRev, 'Items to review', '', nRev ? 'a' : 'g')].join('');
+  // coverage chart
+  const segK = [['exact', 'Exact pair'], ['cross', 'Cross-match'], ['sdtm-only', 'SDTM only'], ['none', 'Unmapped'], ['sur', 'Surrogate']];
+  $('d-leg1').innerHTML = segK.map(([k, l]) => `<span><i style="background:${COL[k]}"></i>${l} ${tot[k]}</span>`).join('');
+  const mx = Math.max(...rows.map(r => r.t));
+  $('d-cov').innerHTML = rows.map(r => hbar(r.a.label || r.a.name, segK.map(([k, l]) => ({ v: r.c[k], c: COL[k], l })), r.t, mx)).join('');
+  $('d-forms').innerHTML = donut([{ l: 'Library form', v: fsrc.lib, c: COL.lib }, { l: 'COSMoS direct', v: fsrc.cosmos, c: COL.cosmos }, { l: 'No form', v: fsrc.noform, c: COL.noform }], 130) +
+    `<div class="muted" style="margin-top:8px">${(R.bc_not_in_library_form_cosmos_fallback || []).length} BCs fell back to COSMoS · ${(R.library_questions_not_required_by_usdm || []).length} library questions flagged</div>`;
+  const ruleOf = c => { const r = (c.customAttribute || {}).subsetRule || ''; return r.startsWith('deferred') ? 'deferred' : r; };
+  const nT = {}; d.terms.forEach(t => nT[t.codelist] = (nT[t.codelist] || 0) + 1);
+  const byRule = {}; d.codelists.forEach(c => { const r = ruleOf(c); byRule[r] = byRule[r] || { n: 0, t: 0 }; byRule[r].n++; byRule[r].t += nT[c.id] || 0; });
+  const top = d.codelists.map(c => ({ id: c.id, t: nT[c.id] || 0, r: ruleOf(c) })).sort((a, b) => b.t - a.t).slice(0, 8), mt = Math.max(1, ...top.map(x => x.t));
+  $('d-ct').innerHTML = donut(Object.keys(byRule).map(r => ({ l: `${r} (${byRule[r].t} terms)`, v: byRule[r].n, c: COL[r] || '#999' })), 120) +
+    `<div class="muted" style="margin:10px 0 4px">Largest study codelists</div>` + top.map(x => hbar(x.id, [{ v: x.t, c: COL[x.r] || '#999', l: x.r }], x.t, mt)).join('');
+  const dom = {}; d.variables.forEach(v => { dom[v.dataset] = dom[v.dataset] || { v: 0, l: 0 }; dom[v.dataset].v++; }); d.value_level.forEach(v => { dom[v.dataset] = dom[v.dataset] || { v: 0, l: 0 }; dom[v.dataset].l++; });
+  const md = Math.max(...Object.values(dom).map(x => x.v + x.l));
+  $('d-dom').innerHTML = `<div class="legend"><span><i style="background:#3949ab"></i>Variables</span><span><i style="background:#9fa8da"></i>VLM rows</span></div>` +
+    Object.keys(dom).map(k => hbar(k + ' · ' + ((DATA.datasets[k] || {}).label || ''), [{ v: dom[k].v, c: '#3949ab', l: 'Variables' }, { v: dom[k].l, c: '#9fa8da', l: 'VLM rows' }], dom[k].v + dom[k].l, md)).join('');
+  $('d-ts').innerHTML = `<div class="muted" style="margin-bottom:6px">Derived from USDM</div><div class="chiplist">${[...tsHave].map(p => `<span class="ok">${p}</span>`).join('')}</div>
+    <div class="muted" style="margin:10px 0 6px">Not derivable – populate manually</div><div class="chiplist">${tsMiss.map(p => `<span class="miss">${p}</span>`).join('')}</div>`;
+  renderFindings();
+}
+function renderFindings() {
+  const R = G.report, keys = Object.keys(R).filter(k => R[k].length).sort((a, b) => SEVORDER[(FINDINGS[a] || ['info'])[0]] - SEVORDER[(FINDINGS[b] || ['info'])[0]]);
+  const cnt = { gap: 0, review: 0, info: 0 }; keys.forEach(k => cnt[(FINDINGS[k] || ['info'])[0]] += R[k].length);
+  $('d-fcount').textContent = `· ${keys.length} finding types`;
+  $('d-ffilter').innerHTML = ['gap', 'review', 'info'].map(s => `<span class="chip ${FSEV === s ? 'on' : ''}" onclick="FSEV=FSEV==='${s}'?null:'${s}';renderFindings()"><span class="sev ${s}">${s}</span> ${cnt[s]}</span>`).join('');
+  $('d-find').innerHTML = keys.filter(k => !FSEV || (FINDINGS[k] || ['info'])[0] === FSEV).map(k => {
+    const [sev, title, why] = FINDINGS[k] || ['info', k, ''], items = R[k];
+    const cols = typeof items[0] === 'object' ? [...new Set(items.flatMap(o => Object.keys(o)))] : ['value'];
+    const cell = v => Array.isArray(v) ? (v.length && typeof v[0] === 'object' ? v.map(o => Object.values(o).join(' ')).join('; ') : v.join(', ')) : (v && typeof v === 'object' ? JSON.stringify(v) : v);
+    return `<details class="fgroup" ${sev === 'gap' ? 'open' : ''}><summary><span class="sev ${sev}">${sev}</span>${esc(title)}<span class="cnt">${items.length}</span></summary>
+      ${why ? `<div class="why">${esc(why)}</div>` : ''}<table><tr>${cols.map(c => `<th>${esc(c)}</th>`).join('')}</tr>${items.slice(0, 300).map(o => `<tr>${cols.map(c => `<td>${esc(cell(typeof o === 'object' ? o[c] : o))}</td>`).join('')}</tr>`).join('')}</table></details>`;
+  }).join('');
+}
+boot();
+
+/* ---------- navigation ---------- */
+function go(p) {
+  if (!M && p !== 'load' && p !== 'std') return;
+  if ((p === 'map' || p === 'gen') && !MASTER_OK) p = 'std';
+  if (p === 'dash' && !G) p = 'gen';
+  if (p === 'dash') renderDashboard();
+  ['load', 'std', 'map', 'gen', 'dash'].forEach(x => { $('p-' + x).classList.toggle('active', x === p); $('st-' + x).classList.toggle('active', x === p); });
+  if (p === 'map') render();
+  if (p === 'gen') updateGenWarn();
+}
+/* ---------- load ---------- */
+function loadUSDM(u, name) {
+  const P = E || new Engine(Object.assign({ std: {}, ct: {}, datasets: {}, vars: {}, VC: [], codelists: {}, terms: {} }, CAT));
+  try { M = P.parse(u); } catch (e) { alert('Could not read USDM: ' + e.message); return; }
+  FORMSRC = P.readFormSources(M);
+  FNAME = (name || M.study.name || 'study').replace(/\.json$/i, '');
+  SEL = P.readSelections(M); const restored = Object.keys(SEL).length;
+  G = null; OPEN = new Set(); if (MASTER_OK) afterMaster();
+  const sv = M.sv, d = M.design, t = (sv.titles || []).find(x => x.type && x.type.code === 'C207616') || (sv.titles || [])[0] || {};
+  $('h-title').textContent = M.study.name + (t.text ? ' — ' + t.text.slice(0, 60) + (t.text.length > 60 ? '…' : '') : '');
+  $('h-meta').textContent = `USDM ${M.u.usdmVersion || ''} · ${d.studyPhase ? d.studyPhase.standardCode.decode : ''} · ${(d.arms || []).length} arms · ${(d.encounters || []).length} encounters`;
+  const nBC = Object.keys(M.bcById).length, nSur = Object.keys(M.surById).length;
+  $('studycard').style.display = 'block';
+  $('studycard').innerHTML = `<h2>${esc(M.study.name)}</h2><div class="kv">
+    <b>Official title</b><span>${esc(t.text || '')}</span>
+    <b>Phase / type</b><span>${esc(d.studyPhase ? d.studyPhase.standardCode.decode : '')} · ${esc(d.studyType ? d.studyType.decode : '')} · ${esc(d.model ? d.model.decode : '')}</span>
+    <b>Arms / epochs</b><span>${(d.arms || []).map(a => esc(a.label || a.name)).join(', ')} · ${(d.epochs || []).map(e => esc(e.label || e.name)).join(' → ')}</span>
+    <b>Specialization extensions</b><span>${restored ? `<span class="pill ok">${restored} BCs restored from extensions</span>` : '<span class="pill">none — suggestions generated</span>'}</span></div>
+    <div class="stats">${[['Activities', M.activities.length], ['Encounters', (d.encounters || []).length], ['Biomedical concepts', nBC], ['BC surrogates', nSur],
+      ['Eligibility criteria', (d.eligibilityCriteria || []).length]].map(x => `<div class="stat"><div class="v">${x[1]}</div><div class="l">${x[0]}</div></div>`).join('')}</div>
+    <div style="margin-top:14px"><button class="primary" onclick="go(MASTER_OK ? 'map' : 'std')">${MASTER_OK ? 'Map specializations ›' : 'Select standard &amp; terminology ›'}</button></div>`;
+  $('st-load').classList.add('done');
+  $('exports').style.display = 'none'; $('previews').style.display = 'none'; $('genstats').innerHTML = '';
+}
+$('file').onchange = e => { const f = e.target.files[0]; if (f) readFile(f); };
+function readFile(f) { const r = new FileReader(); r.onload = () => { try { loadUSDM(JSON.parse(r.result), f.name); } catch (e) { alert('Invalid JSON: ' + e.message); } }; r.readAsText(f); }
+$('sample').onclick = async e => { e.preventDefault(); if (!SAMPLE) SAMPLE = await api('/app/sample'); loadUSDM(JSON.parse(JSON.stringify(SAMPLE)), 'CTX101-001_USDM_v4_no-extensions.json'); };
+const drop = $('drop');
+drop.ondragover = e => { e.preventDefault(); drop.classList.add('over'); }; drop.ondragleave = () => drop.classList.remove('over');
+drop.ondrop = e => { e.preventDefault(); drop.classList.remove('over'); const f = e.dataTransfer.files[0]; if (f) readFile(f); };
+
+/* ---------- mapping state ---------- */
+const STAT = { exact: ['✓', 'Exact pair', 'st-exact'], cross: ['⇄', 'Cross-match', 'st-cross'], 'sdtm-only': ['◐', 'SDTM only', 'st-sdtm-only'], none: ['✕', 'Unmapped', 'st-none'] };
+function statusOf(id) { return E.matchType(SEL[id]); }
+function setSel(id, field, val) {
+  const s = SEL[id] = SEL[id] || { sdtm: '', crf: '' };
+  if (field === 'sdtm') { s.sdtm = val; const c = val ? E.crfCandidates(val, M.bcById[id]).filter(x => x.score > 0)[0] : null; s.crf = c ? c.id : ''; }
+  else s.crf = val;
+  s.confirmed = true; s.source = 'user'; G = null; render(); if ($('drawer').classList.contains('open')) openDrawer(id);
+}
+function toggleConf(id, v) { if (SEL[id]) { SEL[id].confirmed = v; render(); } }
+function confirmAll() { Object.values(SEL).forEach(s => { if (s.sdtm) s.confirmed = true; }); render(); }
+function doSuggest(all) { E.suggest(M, SEL, all); render(); }
+function expandAll(v) { OPEN = v ? new Set(M.activities.map(x => x.a.id)) : new Set(); render(); }
+function toggleAct(id) { OPEN.has(id) ? OPEN.delete(id) : OPEN.add(id); render(); }
+function setView(v) { VIEW = v; $('v-soa').classList.toggle('on', v === 'soa'); $('v-tab').classList.toggle('on', v === 'tab'); render(); }
+function setStatusFilter(s) { STATUS_FILTER = STATUS_FILTER === s ? null : s; if (STATUS_FILTER) expandAll(true); else render(); }
+
+function sdtmSelect(id) {
+  const bc = M.bcById[id], s = SEL[id] || {}, c = E.sdtmCandidates(bc, M.bcActs[id]);
+  let h = `<select class="sdtm" onchange="setSel('${id}','sdtm',this.value)" title="SDTM dataset specialization"><option value="">— no SDTM specialization —</option>`;
+  c.forEach((x, i) => h += `<option value="${x.id}" ${x.id === s.sdtm ? 'selected' : ''}>${i === 0 ? '★ ' : ''}${esc(x.id)} — ${esc(x.name)}</option>`);
+  if (s.sdtm && !c.some(x => x.id === s.sdtm)) h += `<option value="${s.sdtm}" selected>${esc(s.sdtm)} — ${esc((DATA.sdtm[s.sdtm] || {}).name || '')} (manual)</option>`;
+  return h + `</select>`;
+}
+function crfSelect(id) {
+  const s = SEL[id] || {}; if (!s.sdtm) return `<select class="crf" disabled><option>— select SDTM first —</option></select>`;
+  const c = E.crfCandidates(s.sdtm, M.bcById[id]);
+  let h = `<select class="crf" onchange="setSel('${id}','crf',this.value)" title="CRF specialization"><option value="">— no CRF specialization —</option>`;
+  c.forEach(x => h += `<option value="${x.id}" ${x.id === s.crf ? 'selected' : ''}>${x.exact ? '✓' : '⇄'} ${esc(x.id)}${x.exact ? '' : ' (for ' + esc(x.nativeSdtm) + ')'}${x.score < 0 ? ' ⚠ check' : ''}</option>`);
+  return h + `</select>`;
+}
+function statIcon(id) { const st = statusOf(id), m = STAT[st]; return `<span class="ico ${m[2]}" title="${m[1]}">${m[0]}</span>`; }
+function matches(txt) { const f = $('flt').value.trim().toLowerCase(); return !f || txt.toLowerCase().includes(f); }
+function bcText(id) { const b = M.bcById[id], s = SEL[id] || {}; return [b.name, b.code.standardCode.code, s.sdtm, s.crf].join(' '); }
+function bcVisible(id, actTxt) { return (!STATUS_FILTER || statusOf(id) === STATUS_FILTER || (STATUS_FILTER === 'unconf' && SEL[id] && SEL[id].sdtm && !SEL[id].confirmed)) && (matches(bcText(id)) || matches(actTxt)); }
+
+function renderChips() {
+  const ids = Object.keys(M.bcById), cnt = { exact: 0, cross: 0, 'sdtm-only': 0, none: 0 }; let unconf = 0;
+  ids.forEach(id => { cnt[statusOf(id)]++; if (SEL[id] && SEL[id].sdtm && !SEL[id].confirmed) unconf++; });
+  $('chips').innerHTML = Object.keys(STAT).map(k => `<span class="chip ${STATUS_FILTER === k ? 'on' : ''}" onclick="setStatusFilter('${k}')"><span class="${STAT[k][2]}">${STAT[k][0]}</span>${STAT[k][1]} ${cnt[k]}</span>`).join(' ') +
+    ` <span class="chip ${STATUS_FILTER === 'unconf' ? 'on' : ''}" onclick="setStatusFilter('unconf')" style="background:#fffde7">Unconfirmed ${unconf}</span>` +
+    ` <span class="chip" style="cursor:default"><span class="st-sur">◌</span>Surrogates ${Object.keys(M.surById).length}</span>`;
+}
+function render() {
+  if (!M) return; renderChips();
+  const wrap = $('mapview'), y = wrap.scrollTop, x = wrap.scrollLeft;
+  wrap.innerHTML = VIEW === 'soa' ? renderSoA() : renderTable();
+  wrap.scrollTop = y; wrap.scrollLeft = x;
+}
+function renderSoA() {
+  const sais = M.sais, eps = []; sais.forEach(s => { const e = M.epById[s.epochId]; const n = e ? (e.label || e.name) : '';
+    if (eps.length && eps[eps.length - 1].n === n) eps[eps.length - 1].c++; else eps.push({ n, c: 1 }); });
+  let h = `<table class="soa"><thead><tr class="h1"><th class="c0" rowspan="1">Activity / Biomedical Concept</th>${eps.map(e => `<th colspan="${e.c}">${esc(e.n)}</th>`).join('')}</tr>
+    <tr class="h2"><th class="c0" style="background:#253570;color:#90caf9">SDTM specialization · CRF specialization</th>${sais.map(s => { const e = M.encById[s.encounterId]; return `<th title="${esc(e ? e.label : s.name)}">${esc(e ? e.name : s.name)}</th>`; }).join('')}</tr>
+    <tr class="h3"><th class="c0" style="background:#2d3f80"></th>${sais.map(s => { const t = M.timingByInst[s.id]; return `<th>${esc(t ? t.valueLabel : '')}</th>`; }).join('')}</tr></thead><tbody>`;
+  const nC = sais.length;
+  M.activities.forEach(x => {
+    const a = x.a, actTxt = [a.name, a.label].join(' ');
+    if (x.isParent && !x.bcIds.length) { if (matches(actTxt) || !$('flt').value) h += `<tr class="grp"><td class="c0">${esc(a.label || a.name)}</td><td colspan="${nC}"></td></tr>`; return; }
+    const vis = x.bcIds.filter(id => bcVisible(id, actTxt));
+    const surVis = STATUS_FILTER ? [] : x.surIds.filter(() => true);
+    if (!vis.length && !(matches(actTxt) && !STATUS_FILTER)) return;
+    const sched = sais.map(s => (s.activityIds || []).includes(a.id));
+    const st = x.bcIds.map(statusOf), ok = st.filter(s => s === 'exact' || s === 'cross').length;
+    const pills = (x.bcIds.length ? `<span class="pill ${ok === x.bcIds.length ? 'ok' : st.includes('none') ? 'bad' : 'warn'}">BC ${ok}/${x.bcIds.length}</span>` : '') +
+      (x.surIds.length ? `<span class="pill" style="background:#eceff1;color:#607d8b">surrogate ×${x.surIds.length}</span>` : '');
+    const open = OPEN.has(a.id) || !!STATUS_FILTER || !!$('flt').value.trim();
+    h += `<tr class="act ${open ? 'open' : ''}" onclick="toggleAct('${a.id}')"><td class="c0"><span class="caret">▸</span>${esc(a.label || a.name)} ${pills}${formSelect(x)}</td>${sched.map(v => `<td class="dot">${v ? '●' : ''}</td>`).join('')}</tr>`;
+    if (!open) return;
+    (vis.length || STATUS_FILTER ? vis : x.bcIds).forEach(id => {
+      const b = M.bcById[id], s = SEL[id] || {};
+      h += `<tr class="bc ${s.sdtm && !s.confirmed ? 'unconf' : ''}"><td class="c0">${statIcon(id)} <span class="bcname" onclick="openDrawer('${id}')">${esc(b.name)}</span><span class="code">${esc(b.code.standardCode.code)}</span>
+        <div class="selrow">${sdtmSelect(id)}${crfSelect(id)}<label><input type="checkbox" ${s.confirmed ? 'checked' : ''} ${s.sdtm ? '' : 'disabled'} onchange="toggleConf('${id}',this.checked)">ok</label></div></td>
+        ${sched.map(v => `<td class="dot">${v ? '●' : ''}</td>`).join('')}</tr>`;
+    });
+    surVis.forEach(id => { const su = M.surById[id];
+      h += `<tr class="bc sur"><td class="c0"><span class="ico st-sur">◌</span> ${esc(su.name)} <span class="pill" style="background:#eceff1;color:#607d8b">surrogate · excluded from define</span></td>${sched.map(v => `<td class="dot">${v ? '●' : ''}</td>`).join('')}</tr>`; });
+  });
+  return h + '</tbody></table>';
+}
+function renderTable() {
+  let h = `<table class="grid"><thead><tr><th></th><th>Activity</th><th>Biomedical Concept</th><th>Code</th><th>SDTM dataset specialization</th><th>CRF specialization</th><th>Confirmed</th></tr></thead><tbody>`;
+  M.activities.forEach(x => { const a = x.a, actTxt = [a.name, a.label].join(' ');
+    x.bcIds.filter(id => bcVisible(id, actTxt)).forEach(id => { const b = M.bcById[id], s = SEL[id] || {};
+      h += `<tr class="${s.sdtm && !s.confirmed ? 'unconf' : ''}"><td>${statIcon(id)}</td><td>${esc(a.label || a.name)}</td><td><span class="bcname" onclick="openDrawer('${id}')">${esc(b.name)}</span></td>
+        <td class="muted">${esc(b.code.standardCode.code)}</td><td class="selrow">${sdtmSelect(id)}</td><td class="selrow">${crfSelect(id)}</td>
+        <td><input type="checkbox" ${s.confirmed ? 'checked' : ''} ${s.sdtm ? '' : 'disabled'} onchange="toggleConf('${id}',this.checked)"></td></tr>`; });
+    if (!STATUS_FILTER) x.surIds.forEach(id => { if (!matches(M.surById[id].name + ' ' + actTxt)) return;
+      h += `<tr><td><span class="ico st-sur">◌</span></td><td>${esc(a.label || a.name)}</td><td style="color:#78909c;font-style:italic">${esc(M.surById[id].name)}</td><td></td><td colspan="3" class="muted">BC surrogate — excluded from SDTM define and form spec</td></tr>`; });
+  });
+  return h + '</tbody></table>';
+}
+
+/* ---------- drawer ---------- */
+function openDrawer(id) {
+  const b = M.bcById[id], s = SEL[id] || {}, acts = (M.bcActs[id] || []).map(a => a.label || a.name).join(', ');
+  const cands = E.sdtmCandidates(b, M.bcActs[id]);
+  let h = `<h3>${esc(b.name)}</h3><div class="muted">${esc(b.code.standardCode.code)} · activity: ${esc(acts)}${(b.synonyms || []).length ? ' · synonyms: ' + esc(b.synonyms.join(', ')) : ''}</div>`;
+  h += `<h4>SDTM dataset specialization candidates (same BC code)</h4>`;
+  if (!cands.length) h += `<div class="warnbox">No specialization in the local catalogue carries BC code ${esc(b.code.standardCode.code)}. Pick manually below or leave unmapped (reported as a gap).</div>`;
+  cands.forEach((c, i) => h += `<div class="cand ${c.id === s.sdtm ? 'sel' : ''}" onclick="setSel('${id}','sdtm','${c.id}')"><b>${i === 0 ? '★ ' : ''}${esc(c.id)}</b> ${esc(c.name)}<span class="sc">${esc(c.why || '')} · score ${c.score}</span></div>`);
+  h += `<details style="margin-top:6px"><summary class="muted" style="cursor:pointer">Browse whole catalogue…</summary><input type="text" placeholder="search" oninput="catSearch('${id}',this.value)" style="margin:6px 0;width:100%;padding:4px"><div id="catres"></div></details>`;
+  if (s.sdtm && DATA.sdtm[s.sdtm]) {
+    h += `<h4>${esc(s.sdtm)} · variables</h4><table><tr><th>Variable</th><th>Role</th><th>Assigned / value list</th><th>Codelist</th><th>Mand.</th><th>VLM</th></tr>` +
+      E.sdtmRows[s.sdtm].map(r => `<tr><td>${esc(r.sdtm_variable)}</td><td>${esc(r.role)}</td><td>${esc(r.assigned_value || r.value_list)}</td><td>${esc(r.codelist_submission_value)}</td><td>${esc(r.mandatory_variable)}</td><td>${r.vlm_target === 'Y' ? '✓' : ''}</td></tr>`).join('') + '</table>';
+  }
+  if (s.crf && DATA.crf[s.crf]) {
+    const cross = DATA.crf[s.crf].sdtm !== s.sdtm;
+    h += `<h4>${esc(s.crf)} · CRF items ${cross ? `<span class="pill warn">cross-match: built for ${esc(DATA.crf[s.crf].sdtm)}</span>` : '<span class="pill ok">exact</span>'}</h4>`;
+    const rec = E.crfItems[s.crf].map(r => E.reconcileItem(s.sdtm, s.crf, r));
+    h += `<table><tr><th>Item</th><th>Prompt / question</th><th>Values / default</th><th>SDTM target</th></tr>` + rec.map(x => { const r = x.r, ov = x.overrides.length;
+      return `<tr style="${ov ? 'background:#fff3e0' : x.review ? 'background:#ffebee' : ''}"><td>${esc(r.crf_item)}</td><td>${esc(r.prompt || r.question_text)}</td><td>${esc(r.value_list || r.prepopulated_term)}${ov ? '<br><i>overridden: ' + esc(x.overrides.map(o => o.field + ' ' + o.from + ' → ' + o.to).join('; ')) + '</i>' : ''}${x.review ? '<br><i>' + esc(x.note) + '</i>' : ''}</td><td>${esc(r.sdtm_annotation)}</td></tr>`; }).join('') + '</table>';
+  }
+  $('dbody').innerHTML = h; $('drawer').classList.add('open');
+}
+function catSearch(id, q) { q = q.toLowerCase(); if (q.length < 2) { $('catres').innerHTML = ''; return; }
+  $('catres').innerHTML = Object.keys(DATA.sdtm).filter(k => (k + ' ' + DATA.sdtm[k].name).toLowerCase().includes(q)).slice(0, 30)
+    .map(k => `<div class="cand" onclick="setSel('${id}','sdtm','${k}')"><b>${esc(k)}</b> ${esc(DATA.sdtm[k].name)}<span class="sc">BC ${esc(DATA.sdtm[k].bc)}</span></div>`).join('') || '<span class="muted">no match</span>'; }
+function closeDrawer() { $('drawer').classList.remove('open'); }
+
+/* ---------- generate ---------- */
+function updateGenWarn() {
+  const uc = Object.values(SEL).filter(s => s.sdtm && !s.confirmed).length, none = Object.keys(M.bcById).filter(id => statusOf(id) === 'none').length;
+  $('genwarn').innerHTML = (uc ? `<div class="warnbox">${uc} suggested selections are not yet confirmed — they will be applied and listed in the report.</div>` : '') +
+    (none ? `<div class="warnbox">${none} BCs have no SDTM specialization and will be reported as gaps.</div>` : '');
+}
+function runGen() {
+  G = E.generate(M, SEL, { mandatoryOnly: $('o-mand').checked, vlm: $('o-vlm').checked, formSource: FORMSRC }); const S = G.summary;
+  $('st-gen').classList.add('done'); $('st-dash').classList.remove('disabled');
+  $('genstats').innerHTML = [['Datasets', S.datasets], ['Variables', S.variables], ['VLM rows', S.vlmRows], ['Codelists', S.codelists], ['Terms', S.terms],
+    ['Forms', S.forms], ['Questions', S.questions], ['TS rows', S.TS], ['Cross-matched', S.crossMatched], ['BC w/o CRF spec', S.bcWithoutCrf], ['Surrogates', S.surrogates]]
+    .map(x => `<div class="stat"><div class="v">${x[1]}</div><div class="l">${x[0]}</div></div>`).join('');
+  $('exports').style.display = 'grid'; $('previews').style.display = 'block'; renderPrev();
+}
+const PREVS = { vars: 'Define variables', vlm: 'Value level', cls: 'Codelists', q: 'Form questions', ts: 'TS', rep: 'Report' };
+function renderPrev() {
+  $('subtabs').innerHTML = Object.keys(PREVS).map(k => `<span class="${k === SUBTAB ? 'on' : ''}" onclick="SUBTAB='${k}';renderPrev()">${PREVS[k]}</span>`).join('');
+  const t = (cols, rows) => `<table><tr>${cols.map(c => `<th>${esc(c)}</th>`).join('')}</tr>${rows.slice(0, 800).map(r => `<tr>${r.map(v => `<td>${esc(v)}</td>`).join('')}</tr>`).join('')}</table>`;
+  const d = G.define, ca = (o, k) => (o.customAttribute || {})[k];
+  let h = '';
+  if (SUBTAB === 'vars') h = t(['Dataset', 'Variable', 'Label', 'Type', 'Core', 'Codelist', 'Inclusion', 'P21 internalId'], d.variables.map(v => [v.dataset, v.variable, v.label, v.dataType, v.core, v.codelist, ca(v, 'inclusion'), ca(v, 'sourceInternalId')]));
+  if (SUBTAB === 'vlm') h = t(['Dataset', 'Variable', 'Where clause', 'Label', 'Type', 'Codelist', 'Origin'], d.value_level.map(v => [v.dataset, v.variable, v.whereClause, v.label, v.dataType, v.codelist, v.origin]));
+  if (SUBTAB === 'cls') { const n = {}; d.terms.forEach(x => n[x.codelist] = (n[x.codelist] || 0) + 1);
+    h = t(['Codelist', 'Name', 'Ext.', 'Rule', 'Terms', 'Used by'], d.codelists.map(c => [c.id, c.name, c.extensible, ca(c, 'subsetRule'), n[c.id] || 0, (ca(c, 'usedBy') || []).join(', ')])); }
+  if (SUBTAB === 'q') h = t(['Form', 'Section', 'ID', 'Prompt / question', 'Type', 'Codelist', 'Default', 'SDTM target', 'Notes'], G.crf.questions.map(q => [q.Source + ' · ' + q.Form, q.Section, q.ID, q.Prompt || q.QuestionText, q.DataType, q.Codelist, q.DefaultValue, q.SDTMTarget, q.DeveloperNotes]));
+  if (SUBTAB === 'ts') h = t(['TSSEQ', 'TSPARMCD', 'TSPARM', 'TSVAL', 'TSVALCD', 'USDM source'], G.td.TS.map(r => [r.TSSEQ, r.TSPARMCD, r.TSPARM, r.TSVAL, r.TSVALCD, r._usdm]));
+  if (SUBTAB === 'rep') { const rows = []; for (const k in G.report) G.report[k].forEach(v => rows.push([k, typeof v === 'object' ? JSON.stringify(v) : v])); h = t(['Finding', 'Detail'], rows); }
+  $('prev').innerHTML = h;
+}
+function save(name, data, type) { const b = new Blob([data], { type }); const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = name; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500); }
+function dl(what) {
+  if (!G) runGen(); const base = G.studyid; const X = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+  if (what === 'usdm') save(FNAME.replace(/_no-extensions$/, '') + '_extended.json', JSON.stringify(G.extended, null, 2), 'application/json');
+  if (what === 'define') save(base + '_SDTM_define_spec.xlsx', E.defineWorkbook(G), X);
+  if (what === 'definejson') save(base + '_p21_sdtm_study_define.json', JSON.stringify(G.define, null, 1), 'application/json');
+  if (what === 'form') save(base + '_CRF_form_spec.xlsx', E.formWorkbook(G), X);
+  if (what === 'formjson') save(base + '_p21_crf_form_spec.json', JSON.stringify(G.crf, null, 1), 'application/json');
+  if (what === 'ts') save(base + '_TS_trial_design.xlsx', E.tsWorkbook(G), X);
+  if (what === 'report') save(base + '_generation_report.json', JSON.stringify({ summary: G.summary, ...G.report }, null, 1), 'application/json');
+}
+</script>
+</body>
+</html>
