@@ -19,8 +19,8 @@
   "defineDatasets": 17,
   "defineVariables": 192,
   "vlmRows": 274,
-  "codelists": 87,
-  "terms": 521,
+  "codelists": 86,
+  "terms": 520,
   "crfForms": 18,
   "crfQuestions": 643,
   "crfCodelists": 243,
@@ -317,7 +317,6 @@
    "codelist": "NCOMPLT",
    "terms": 45,
    "usedBy": [
-    "DS.DSDECOD",
     "DS.DSDECOD [DSSTUDYPARTICIPATION]"
    ]
   },
@@ -335,9 +334,7 @@
    "codelist": "NORMABNM",
    "terms": 5,
    "usedBy": [
-    "EG.EGORRES",
     "EG.EGORRES [EGINTP]",
-    "EG.EGSTRESC",
     "EG.EGSTRESC [EGINTP]"
    ]
   },

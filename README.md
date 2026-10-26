@@ -103,8 +103,9 @@ USDM_P21/
 **SDTM define**
 1. Domains = domains of the selected SDTM specializations + TA/TE/TV/TI/TS.
 2. Variables = all *Required/Expected* variables of each domain (domain shell) ∪ specialization variables (`mandatory_variable = Y` by default).
-3. VLM rows for `vlm_target = Y` variables; where-clause from `EQ` comparators with assigned values (e.g. `LBTESTCD EQ "HGB" AND LBSPEC EQ "BLOOD"`).
-4. Codelist cut, per codelist:
+3. A codelist that only some specializations attach to a variable, and that the standard doesn't assign to it (e.g. `NORMABNM` on `EGORRES`, only for `EGTESTCD = INTP`), is carried at **value level only** – the variable itself gets no codelist (VLM on).
+4. VLM rows for `vlm_target = Y` variables; where-clause from `EQ` comparators with assigned values (e.g. `LBTESTCD EQ "HGB" AND LBSPEC EQ "BLOOD"`).
+5. Codelist cut, per codelist:
 
 | Situation | Result |
 |---|---|

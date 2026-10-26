@@ -376,15 +376,20 @@ Engine.prototype.generate = function (M, sel, opts) {
         if (r.assigned_value) g[0].push(r.assigned_value); else if (r.value_list) g[0].push(...r.value_list.split(';')); else g[1] = true; });
       if (!groups.size && mv.codelist) groups.set(mv.codelist, [[], true]);
       const sfx = vn.startsWith(dom) ? vn.slice(dom.length) : vn;
-      for (const [cl, g] of groups) {
+      // a codelist only some specializations attach (e.g. NORMABNM for EGINTP on EGORRES) and the standard doesn't assign to the
+      // variable belongs at value level only - when VLM is on and every such row is a VLM target with a where clause
+      const vlmOnly = !!(opts.vlm && groups.size && !groups.has(mv.codelist) && (groups.size > 1 || rs.some(([, r]) => !r.codelist_submission_value)) &&
+        rs.filter(([, r]) => r.codelist_submission_value).every(([s_, r]) => r.vlm_target === 'Y' && whereOf(s_)));
+      for (const [cl, g] of (vlmOnly ? [] : groups)) {
         let vals = g[0], unconstrained = g[1];
         if ((dom === 'EC' || dom === 'EX') && usdmAssigned[sfx]) { vals = [...usdmAssigned[sfx]].sort(); unconstrained = false; }
         if (TDM.includes(dom)) { vals = [...new Set(td[dom].map(r => r[vn]).filter(x => x !== '' && x != null).map(String))].sort(); unconstrained = !vals.length; }
         if (DICTIONARIES.has(cl) || (mv.codelist === cl && !D.codelists[cl] && !hdrCl.has(cl))) { rep('external_dictionaries', { variable: dom + '.' + vn, dictionary: cl }); continue; }
         want(cl, vals, dom + '.' + vn, unconstrained, unconstrained && rs.length > 0 && !TDM.includes(dom));
       }
-      v.codelist = groups.size ? (groups.has(mv.codelist) ? mv.codelist : (groups.size === 1 ? [...groups.keys()][0] : null)) : null;
-      if (groups.size > 1) v.customAttribute.note = 'codelists differ by specialization (' + [...groups.keys()].join(', ') + '); carried at value level';
+      v.codelist = vlmOnly ? null : groups.size ? (groups.has(mv.codelist) ? mv.codelist : (groups.size === 1 ? [...groups.keys()][0] : null)) : null;
+      if (vlmOnly) v.customAttribute.note = 'codelist ' + [...groups.keys()].join(', ') + ' applies to specific tests only - carried at value level';
+      else if (groups.size > 1) v.customAttribute.note = 'codelists differ by specialization (' + [...groups.keys()].join(', ') + '); carried at value level';
       if (opts.vlm) rs.forEach(([s, r]) => {
         if (r.vlm_target !== 'Y') return; const wc = whereOf(s); if (!wc) return;
         let vcl = r.codelist_submission_value || null;

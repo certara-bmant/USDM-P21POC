@@ -262,7 +262,12 @@ for dom in all_domains:
         if not groups and mv['codelist']:
             groups[mv['codelist']] = [[], True]
         sfx = vn[len(dom):] if vn.startswith(dom) else vn
-        for cl, (vals, unconstrained) in groups.items():
+        # a codelist that only some specializations attach (e.g. NORMABNM for EGINTP on EGORRES) and that the standard does not
+        # assign to the variable belongs at value level only - when VLM is on and every such row is a VLM target with a where clause
+        vlm_only = bool(VLM_ON and groups and mv['codelist'] not in groups
+                        and (len(groups) > 1 or any(not r['codelist_submission_value'] for _, r in rs))
+                        and all(r['vlm_target'] == 'Y' and where_of(s_) for s_, r in rs if r['codelist_submission_value']))
+        for cl, (vals, unconstrained) in ([] if vlm_only else groups.items()):
             if dom in ('EC', 'EX') and sfx in usdm_assigned:   # protocol-assigned from USDM administrations
                 vals, unconstrained = sorted(usdm_assigned[sfx]), False
             if dom in TDM:  # trial design codelists cut to values actually generated from USDM
@@ -270,8 +275,9 @@ for dom in all_domains:
             if cl in DICTIONARIES or (mv['codelist'] == cl and cl not in m_cl and cl[:1].isupper() and cl not in hdr_cl_ids):
                 report['external_dictionaries'].append({'variable': f'{dom}.{vn}', 'dictionary': cl}); continue
             want(cl, vals, f'{dom}.{vn}', full=unconstrained, spec_full=unconstrained and bool(rs) and dom not in TDM)
-        v['codelist'] = (mv['codelist'] if mv['codelist'] in groups else (next(iter(groups)) if len(groups) == 1 else None)) if groups else None
-        if len(groups) > 1: v['customAttribute']['note'] = f'codelists differ by specialization ({", ".join(groups)}); carried at value level'
+        v['codelist'] = None if vlm_only else (mv['codelist'] if mv['codelist'] in groups else (next(iter(groups)) if len(groups) == 1 else None)) if groups else None
+        if vlm_only: v['customAttribute']['note'] = f'codelist {", ".join(groups)} applies to specific tests only - carried at value level'
+        elif len(groups) > 1: v['customAttribute']['note'] = f'codelists differ by specialization ({", ".join(groups)}); carried at value level'
         # VLM -------------------------------------------------------------------
         if VLM_ON:
             for s, r in rs:
