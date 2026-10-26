@@ -66,12 +66,25 @@ Show, on a realistic study, that a USDM v4 protocol can drive P21 study artefact
 **Tooling**
 - The `usdm4` validator's CT-version list stops at 2025-03-28, so rule DDF00155 falsely fails on current CT. All implemented rules pass once that list is updated.
 
+**USDM content – procedure-only activities (key gap, not built)**
+- The POC drives everything from `Activity.biomedicalConceptIds`. The sample study is BC-complete, but many real USDMs describe assessments only as `Activity.definedProcedures`: a `Procedure` coded in CPT, SNOMED or NCIt, such as "12-lead ECG" or "Complete blood count", with no BCs attached. Such activities currently show no BCs, so they produce no define content and no form items. They aren't yet reported as a distinct gap either.
+- **Potential route:** a curated reference table held in P21 next to the specialization table, for example:
+
+  | procedure_code | code_system | bc_id | default_sdtm_specialization | default_crf_specialization |
+  |---|---|---|---|---|
+  | 12-lead ECG code | NCIt / CPT | C117783 (QT) | QTAG | QTAG_DENORMALIZED |
+  | CBC code | NCIt / CPT | C64848 (HGB) | HGBBLD | HGBBLD_DENORMALIZED |
+
+  On load, procedure-only activities would be expanded into *proposed* BCs, which the user confirms in the SoA. They would then be written back to the USDM as `BiomedicalConcept`s on the activity, so the existing mapping, generation and extension persistence apply unchanged. Procedure codes without a table entry would be reported as gaps.
+- **Dependencies:** consistent procedure coding in sponsor USDMs, and ownership and curation of the procedure → BC table (procedure panels vary by sponsor and lab).
+
 ## 6. Open questions
 
 1. Is a P21 write/import API planned, or should the generated files target the P21 Excel import templates?
 2. Where should the library form ↔ specialization link table live in P21, and who curates it?
 3. Should BC surrogates whose test code exists in CT (e.g. `LEUKASE`) be added to the define automatically?
 4. Will the full COSMoS catalogue be held in P21 as a table (with version history), and how are new COSMoS releases compared with existing studies?
+5. How common are procedure-only activities in the USDMs we'll receive, and is a procedure → BC reference table (owned by the standards team) worth building to cover them?
 
 ## 7. Recommended next steps
 

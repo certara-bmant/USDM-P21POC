@@ -163,6 +163,7 @@ Scripts 01/04 need `pip install usdm` (CDISC USDM pydantic model) for validation
 - **CT subset:** codelists > 1,000 terms are carried with referenced terms only.
 - **USDM rule DDF00155** in `usdm4` has a stale CT-version list (ends 2025-03-28); with current versions appended all implemented rules pass.
 - TM/TD and sub-timelines (e.g. PK sampling schedules) are out of scope.
+- **Procedure-only activities are not resolved (key gap).** Generation only follows `Activity.biomedicalConceptIds` (plus BC categories). Many real USDMs describe assessments as `Activity.definedProcedures` (a `Procedure` with a code such as CPT/SNOMED/NCIt, e.g. "12-lead ECG", "Complete blood count") with no BCs attached. These activities show no BCs, so no specialization, define content or form items are generated. Support is deferred; see [Roadmap](#roadmap).
 
 ## Roadmap
 
@@ -171,6 +172,7 @@ Scripts 01/04 need `pip install usdm` (CDISC USDM pydantic model) for validation
 - Full COSMoS catalogue sync and version-diff on re-generation
 - Role/override list for codelist rules (e.g. always-full `RSLSCLRS`)
 - Surrogate handling via terminology (e.g. `LEUKASE` test code) and SUPP-- generation
+- **Procedure → BC expansion** (not built): a curated reference table `procedure_code → [bc_id, default sdtm/crf specialization]` held in P21 next to the specialization table (e.g. ECG procedure → HR, PR, QRS, QT, QTcF, RR, interpretation; CBC → HGB, HCT, RBC, WBC, PLAT, differential). On load, procedure-only activities would be expanded into *proposed* BCs written back as USDM `BiomedicalConcept`s on the activity, so the existing SoA mapping, generation and extension persistence work unchanged. User confirmation required; unmatched procedure codes reported as gaps.
 
 ---
 *Proof of concept – not validated for regulatory use. CTX101-001 is a fictional study.*
