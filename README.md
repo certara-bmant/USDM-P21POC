@@ -42,7 +42,7 @@ python usdm_p21_app.py            # opens http://127.0.0.1:8765
 - **Offline:** leave the key blank – the app uses JSON exports you place in `app/p21_exports/` (git-ignored; e.g. SDTMIG 3.4 + SDTM CT 2026-03-27 exported from P21E).
 - **Sample study:** step 1 → *load sample CTX101-001 (no extensions)*.
 
-No install required – standard-library Python only. A zero-server, single-file demo is also available: open `USDM_P21_Workbench_Demo.html` in a browser (embedded data, no API, no form library).
+No install required – standard-library Python only. A zero-server, single-file demo is also available: open `USDM_P21_Workbench_Demo.html` in a browser. It is built from the same UI and engine as the app (all 5 steps, sub-timelines, form library, dashboard) with SDTMIG 3.4 + CT 2026-03-27 embedded; other standards, terminologies and form libraries can be added by loading P21 export JSON files in step 2. Only the live P21E API needs the local app.
 
 ## Workflow
 
@@ -89,7 +89,7 @@ USDM_P21/
 │   ├── p21_exports/                  #   offline standard / terminology / form exports
 │   └── cache/                        #   API export cache (24 h)
 ├── USDM_P21_Workbench_Demo.html      # Single-file demo (no server)
-├── demo/                             # Demo sources (template, engine, sample USDM)
+├── demo/                             # standalone_shim.js (routes app calls to embedded data / loaded exports) + sample USDM
 ├── scripts/                          # Python batch pipeline (00–05)
 ├── reference/                        # COSMoS tables: cosmos_sdtm_item.csv, cosmos_crf_item.csv, headers
 ├── CTX101-001_USDM_v4.json           # Sample Phase 1 SAD USDM with specialization extensions
@@ -155,8 +155,8 @@ python scripts/00_build_cosmos_tables.py <cosmos_yaml_dir> reference
 python scripts/01_build_usdm.py reference term34.json CTX101-001_USDM_v4.json
 python scripts/02_generate_p21.py CTX101-001_USDM_v4.json reference sdtm34.json term34.json p21 [--all-variables] [--no-vlm]
 python scripts/03_export_excel.py p21 p21/CTX101-001_P21_Study_Spec.xlsx
-python scripts/04_build_demo_data.py reference CTX101-001_USDM_v4.json sdtm34.json term34.json demo
-python scripts/05_build_demo_html.py demo USDM_P21_Workbench_Demo.html
+python scripts/04_build_demo_data.py reference CTX101-001_USDM_v4.json sdtm34.json term34.json demo   # no-extensions sample USDM
+python scripts/05_build_demo_html.py app sdtm34.json term34.json USDM_P21_Workbench_Demo.html     # standalone demo from the app
 ```
 Scripts 01/04 need `pip install usdm` (CDISC USDM pydantic model) for validation.
 
