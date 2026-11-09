@@ -177,6 +177,8 @@ Engine.prototype.setFormLibrary = function (lib, name) {
   (lib.forms || []).forEach(f => { L.formById[f.id] = f; L.questionsByForm[f.id] = []; });
   (lib.questions || []).forEach(q => { (L.questionsByForm[q.form] = L.questionsByForm[q.form] || []).push(q); if (!L.formById[q.form]) L.formById[q.form] = { id: q.form, name: q.form }; });
   Object.values(L.questionsByForm).forEach(a => a.sort((x, y) => (+x.order || 0) - (+y.order || 0)));
+  L.sectionsByForm = {}; (lib.sections || []).forEach(x => (L.sectionsByForm[x.form] = L.sectionsByForm[x.form] || []).push(x));
+  Object.values(L.sectionsByForm).forEach(a => a.sort((x, y) => (+x.order || 0) - (+y.order || 0)));
   (lib.codelists || []).forEach(c => L.codelistById[c.id] = c);
   (lib.terms || []).forEach(t => (L.termsByCl[t.codelist] = L.termsByCl[t.codelist] || []).push(t));
   this.lib = L;
@@ -462,8 +464,9 @@ Engine.prototype.generate = function (M, sel, opts) {
   const REPEATING = new Set(['AE', 'CM', 'MH']);
   const encs = M.design.encounters || [];
   const events = encs.map((e, i) => ({ Order: i + 1, ID: e.name, Name: e.label || e.name, Type: 'Scheduled', Mandatory: '', Repeating: 'No', DeveloperNotes: '' }));
-  const forms = [], questions = [], soa = [], crfCls = new Map(), crfTerms = [], actForms = {};
-  const emitCosmos = (act, formId, sectionPrefix, { bc, s, c }, orderRef) => {
+  const forms = [], sections = [], questions = [], soa = [], crfCls = new Map(), crfTerms = [], actForms = {};
+  const addSection = (form, id, name, repeating, notes) => { if (!sections.some(x => x.ID === id)) sections.push({ Form: form, Order: sections.filter(x => x.Form === form).length + 1, ID: id, Name: name, Mandatory: '', Repeating: repeating ? 'Yes' : 'No', Condition: '', 'Developer Notes': notes || '' }); };
+  const emitCosmos = (act, formId, sectionId, { bc, s, c }, orderRef) => {
     const crfSdtm = D.crf[c].sdtm, cross = !!(s && crfSdtm && crfSdtm !== s);
     const overrides = [], review = [];
     this.crfItems[c].forEach(r0 => {
@@ -480,7 +483,7 @@ Engine.prototype.generate = function (M, sel, opts) {
             crfTerms.push({ Order: j + 1, Codelist: cl, 'Display Term': disp[j] || (t && t.decodedValue) || val, 'Recommended Term': val, 'NCI Term Code': t ? t.nciCode : '' }); });
         }
       }
-      questions.push({ Form: formId, Section: sectionPrefix + c, Order: orderRef.n, ID: r.crf_item, SourceVariableName: r.variable_name, QuestionText: r.question_text, Prompt: r.prompt,
+      questions.push({ Form: formId, Section: sectionId, Order: orderRef.n, ID: r.crf_item, SourceVariableName: r.variable_name, QuestionText: r.question_text, Prompt: r.prompt,
         Description: r.dec_id, DataType: r.data_type, Length: r.length, Digits: r.significant_digits, Mandatory: r.mandatory_variable === 'Y' ? 'Yes' : 'No', Codelist: cl,
         DefaultValue: r.prepopulated_term, Hidden: r.display_hidden === 'Y' ? 'Yes' : 'No', ControlType: r.selection_type,
         SDTMTarget: r.sdtm_target_variables.split(';').filter(Boolean).map(x => D.crf[c].d + '.' + x).join(';'), MappingInstructions: r.sdtm_annotation,
@@ -498,6 +501,9 @@ Engine.prototype.generate = function (M, sel, opts) {
         Condition: '', SourceDatasetName: '', SDTMTargetDomains: '', DeveloperNotes: `Library form (${this.lib.name}) for USDM activity ${act.name}`, Source: 'Library' });
       const codes = new Set(selAll.map(y => this.topicCode(y.s)).filter(Boolean));
       const covered = new Set(); const orderRef = { n: 0 };
+      const libSecs = (this.lib.sectionsByForm[fid] || []);   // library item groups if the export has them, else 1:1 with the form
+      libSecs.forEach(x => addSection(fid, x.id, x.name || x.id, x.isRepeating, x.developerNotes));
+      const secOf = q => q.section && libSecs.some(x => x.id === q.section) ? q.section : (addSection(fid, fid, libForm.name || fid, libForm.isRepeating), fid);
       this.lib.questionsByForm[fid].forEach(q => {
         orderRef.n++; const toks = this.qTokens(q), hit = selAll.filter(y => { const tc = this.topicCode(y.s); return tc && toks.has(tc); });
         hit.forEach(y => covered.add(y.bc.id));
@@ -508,7 +514,7 @@ Engine.prototype.generate = function (M, sel, opts) {
           (this.lib.termsByCl[cl] || []).forEach(t => { const ct = E.termBy[(lc.recommendedCodelist || '') + '|' + (t.recommendedTerm || t.term)];
             crfTerms.push({ Order: t.order, Codelist: cl, 'Display Term': t.term, 'Recommended Term': t.recommendedTerm || t.term, 'NCI Term Code': ct ? ct.nciCode : '' }); });
         }
-        questions.push({ Form: fid, Section: q.section || '', Order: orderRef.n, ID: q.id, SourceVariableName: q.id, QuestionText: q.questionText || '', Prompt: '',
+        questions.push({ Form: fid, Section: secOf(q), Order: orderRef.n, ID: q.id, SourceVariableName: q.id, QuestionText: q.questionText || '', Prompt: '',
           Description: q.description || '', DataType: q.type || '', Length: q.length || '', Digits: q.digits || '', Mandatory: q.isMandatory ? 'Yes' : 'No', Codelist: cl,
           DefaultValue: '', Hidden: 'No', ControlType: '', SDTMTarget: q.sdtmTarget || '', MappingInstructions: '', Core: '', CompletionInstructions: '', ImplementationNotes: '',
           DeveloperNotes: [q.developerNotes, other.length && !hit.length ? `Review: test ${other.join(', ')} not in USDM activity ${act.name} - remove if not collected` : ''].filter(Boolean).join(' | '),
@@ -516,7 +522,8 @@ Engine.prototype.generate = function (M, sel, opts) {
         if (other.length && !hit.length) rep('library_questions_not_required_by_usdm', { activity: act.name, form: fid, question: q.id, tests: other });
       });
       selAll.filter(y => !covered.has(y.bc.id)).forEach(y => {
-        if (y.c) { emitCosmos(act, fid, 'COSMoS:', y, orderRef); rep('bc_not_in_library_form_cosmos_fallback', { activity: act.name, form: fid, bc: y.bc.name, crfSpecialization: y.c }); }
+        if (y.c) { addSection(fid, fid + '.COSMOS', 'Additional items (COSMoS)', libForm.isRepeating, 'BCs not on the library form - items from COSMoS CRF specializations');
+          emitCosmos(act, fid, fid + '.COSMOS', y, orderRef); rep('bc_not_in_library_form_cosmos_fallback', { activity: act.name, form: fid, bc: y.bc.name, crfSpecialization: y.c }); }
         else rep('bc_not_in_library_form_no_fallback', { activity: act.name, form: fid, bc: y.bc.name });
       });
       rep('library_forms_used', { activity: act.name, form: fid, library: this.lib.name, bcsCovered: covered.size, bcs: selAll.length });
@@ -528,11 +535,12 @@ Engine.prototype.generate = function (M, sel, opts) {
     forms.push({ Order: forms.length + 1, ID: act.name, Name: act.label || act.name, Description: '', Class: '', Repeating: doms.some(d => REPEATING.has(d)) ? 'Yes' : 'No',
       Condition: '', SourceDatasetName: doms.join(','), SDTMTargetDomains: doms.join(','), DeveloperNotes: '', Source: 'COSMoS' });
     const orderRef = { n: 0 };
-    selA.forEach(y => emitCosmos(act, act.name, '', y, orderRef));
+    addSection(act.name, act.name, act.label || act.name, doms.some(d => REPEATING.has(d)));   // 1:1 form : section
+    selA.forEach(y => emitCosmos(act, act.name, act.name, y, orderRef));
   });
   M.sais.forEach(sai => { const enc = M.encById[sai.encounterId]; if (!enc) return; let o = 0;
     (sai.activityIds || []).forEach(aid => { if (actForms[aid]) soa.push({ Order: ++o, Event: enc.name, Form: actForms[aid], Mandatory: 'Yes' }); }); });
-  const crf = { events, forms, scheduleOfActivities: soa, questions, codelists: [...crfCls.values()], terms: crfTerms };
+  const crf = { events, forms, sections, scheduleOfActivities: soa, questions, codelists: [...crfCls.values()], terms: crfTerms };
 
   // ---- extended USDM (persist selections + hidden P21 links)
   const ext = JSON.parse(JSON.stringify(M.u)); const xsv = ext.study.versions[0];
@@ -647,7 +655,7 @@ Engine.prototype.defineWorkbook = function (G) {
 };
 Engine.prototype.formWorkbook = function (G) {
   const c = G.crf;
-  return buildXlsx([specSheet('FormSpec', G.studyMeta || {}, ['StudyName', 'StudyDescription', 'ProtocolName', 'Language', 'Source Spec(s)']), objSheet('Events', c.events), objSheet('Forms', c.forms), objSheet('ScheduleOfActivities', c.scheduleOfActivities),
+  return buildXlsx([specSheet('FormSpec', G.studyMeta || {}, ['StudyName', 'StudyDescription', 'ProtocolName', 'Language', 'Source Spec(s)']), objSheet('Events', c.events), objSheet('Forms', c.forms), objSheet('Sections', c.sections, ['Form', 'Order', 'ID', 'Name', 'Mandatory', 'Repeating', 'Condition', 'Developer Notes']), objSheet('ScheduleOfActivities', c.scheduleOfActivities),
     objSheet('Questions', c.questions), objSheet('Codelists', c.codelists), objSheet('Terms', c.terms), reportSheet(G.report)]);
 };
 Engine.prototype.tsWorkbook = function (G) {
