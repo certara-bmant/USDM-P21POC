@@ -736,7 +736,7 @@ Engine.prototype.generate = function (M, sel, opts) {
   const encs = M.design.encounters || [];
   const events = encs.map((e, i) => ({ Order: i + 1, ID: e.name, Name: e.label || e.name, Type: 'Scheduled', Mandatory: '', Repeating: 'No', DeveloperNotes: '' }));
   const forms = [], sections = [], questions = [], soa = [], crfCls = new Map(), crfTerms = [], actForms = {};
-  const addSection = (form, id, name, repeating, notes) => { if (!sections.some(x => x.ID === id)) sections.push({ Form: form, Order: sections.filter(x => x.Form === form).length + 1, ID: id, Name: name, Mandatory: '', Repeating: repeating ? 'Yes' : 'No', Condition: '', 'Developer Notes': notes || '' }); };
+  const addSection = (form, id, name, repeating, notes) => { if (!sections.some(x => x.Form === form && x.ID === id)) sections.push({ Form: form, Order: sections.filter(x => x.Form === form).length + 1, ID: id, Name: name, Mandatory: '', Repeating: repeating ? 'Yes' : 'No', Condition: '', 'Developer Notes': notes || '' }); };
   const emitCosmos = (act, formId, sectionId, { bc, s, c }, orderRef) => {
     const crfSdtm = D.crf[c].sdtm, cross = !!(s && crfSdtm && crfSdtm !== s);
     const overrides = [], review = [];
@@ -795,8 +795,8 @@ Engine.prototype.generate = function (M, sel, opts) {
         if (other.length && !hit.length) rep('library_questions_not_required_by_usdm', { activity: act.name, form: fid, question: q.id, tests: other });
       });
       selAll.filter(y => !covered.has(y.bc.id)).forEach(y => {
-        if (y.c) { addSection(fid, fid + '.COSMOS', 'Additional items (COSMoS)', libForm.isRepeating, 'BCs not on the library form - items from COSMoS CRF specializations');
-          emitCosmos(act, fid, fid + '.COSMOS', y, orderRef); rep('bc_not_in_library_form_cosmos_fallback', { activity: act.name, form: fid, bc: y.bc.name, crfSpecialization: y.c }); }
+        if (y.c) { addSection(fid, y.c, D.crf[y.c].name, libForm.isRepeating, 'BC not on the library form - items from COSMoS CRF specialization');
+          emitCosmos(act, fid, y.c, y, orderRef); rep('bc_not_in_library_form_cosmos_fallback', { activity: act.name, form: fid, bc: y.bc.name, crfSpecialization: y.c }); }
         else rep('bc_not_in_library_form_no_fallback', { activity: act.name, form: fid, bc: y.bc.name });
       });
       rep('library_forms_used', { activity: act.name, form: fid, library: this.lib.name, bcsCovered: covered.size, bcs: selAll.length });
@@ -808,8 +808,8 @@ Engine.prototype.generate = function (M, sel, opts) {
     forms.push({ Order: forms.length + 1, ID: act.name, Name: act.label || act.name, Description: '', Class: '', Repeating: doms.some(d => REPEATING.has(d)) ? 'Yes' : 'No',
       Condition: '', SourceDatasetName: doms.join(','), SDTMTargetDomains: doms.join(','), DeveloperNotes: '', Source: 'COSMoS' });
     const orderRef = { n: 0 };
-    addSection(act.name, act.name, act.label || act.name, doms.some(d => REPEATING.has(d)));   // 1:1 form : section
-    selA.forEach(y => emitCosmos(act, act.name, act.name, y, orderRef));
+    selA.forEach(y => { addSection(act.name, y.c, D.crf[y.c].name, REPEATING.has(D.crf[y.c].d));   // section = CRF specialization (crf_group_id)
+      emitCosmos(act, act.name, y.c, y, orderRef); });
   });
   M.sais.forEach(sai => { const enc = M.encById[sai.encounterId]; if (!enc) return; let o = 0;
     (sai.activityIds || []).forEach(aid => { if (actForms[aid]) soa.push({ Order: ++o, Event: enc.name, Form: actForms[aid], Mandatory: 'Yes' }); }); });
