@@ -525,7 +525,11 @@ Engine.prototype.generate = function (M, sel, opts) {
 
   // ---- trial design (Flow 3)
   const orgs = {}; (sv.organizations || []).forEach(o => orgs[o.id] = o);
-  const sponsorId = (sv.studyIdentifiers || []).find(i => orgs[i.scopeId] && orgs[i.scopeId].type && orgs[i.scopeId].type.code === 'C54149');
+  // tolerant of older USDM CT (e.g. C70793 'Clinical Study Sponsor', C99905x titles) by also matching on decode text
+  const isRegistry = o => !!o && ((o.type || {}).code === 'C93453' || /registry/i.test((o.type || {}).decode || '') || /clinicaltrials|ct-?gov|eudract|ctis|isrctn/i.test(o.name || ''));
+  const isSponsor = o => !!o && !isRegistry(o) && (['C54149', 'C70793'].includes((o.type || {}).code) || /sponsor|pharmaceutical|drug company/i.test((o.type || {}).decode || ''));
+  const titleOf = (code, re) => (sv.titles || []).find(t => t.type && (t.type.code === code || re.test(t.type.decode || '')));
+  const sponsorId = (sv.studyIdentifiers || []).find(i => isSponsor(orgs[i.scopeId])) || (sv.studyIdentifiers || []).find(i => !isRegistry(orgs[i.scopeId]));
   const studyid = sponsorId ? sponsorId.text : M.study.name;
   const TA = [], TE = [], TV = [], TI = [], TS = [];
   const epochs = {}; (design.epochs || []).forEach(e => epochs[e.id] = e);
@@ -556,7 +560,7 @@ Engine.prototype.generate = function (M, sel, opts) {
     TS.push({ STUDYID: studyid, DOMAIN: 'TS', TSSEQ: TS.filter(r => r.TSPARMCD === parm).length + 1, TSPARMCD: parm, TSPARM: tsparm[parm] || '',
       TSVAL: String(val).slice(0, 200), TSVALCD: cd[0], TSVCDREF: cd[1], TSVCDVER: cd[2], _usdm: src || '' }); };
   const tsc = (parm, cl, c, src) => { if (!c) return; const v = sub(cl, c); ts(parm, v, ct(cl, v), src); };
-  const title = (sv.titles || []).find(t => t.type && t.type.code === 'C207616');
+  const title = titleOf('C207616', /official/i);
   if (title) ts('TITLE', title.text, null, 'StudyVersion.titles[Official Study Title]');
   if (design.studyPhase) tsc('TPHASE', 'TPHASE', design.studyPhase.standardCode, 'StudyDesign.studyPhase');
   if (design.studyType) tsc('STYPE', 'STYPE', design.studyType, 'StudyDesign.studyType');
@@ -599,7 +603,7 @@ Engine.prototype.generate = function (M, sel, opts) {
   (design.objectives || []).forEach(o => { const p = { C85826: 'OBJPRIM', C85827: 'OBJSEC', C163559: 'OBJEXP' }[o.level && o.level.code]; if (p) ts(p, o.text, null, 'Objective ' + o.id);
     (o.endpoints || []).forEach(e => { const q = { C94496: 'OUTMSPRI', C139173: 'OUTMSSEC', C170559: 'OUTMSEXP' }[e.level && e.level.code]; if (q) ts(q, e.text, null, 'Endpoint ' + e.id); }); });
   (sv.studyIdentifiers || []).forEach(i => { const o = orgs[i.scopeId]; if (!o || !o.type) return;
-    if (o.type.code === 'C93453') ts('REGID', i.text, null, 'StudyIdentifier (registry)'); if (o.type.code === 'C54149') ts('SPONSOR', o.name, null, 'Organization (sponsor)'); });
+    if (isRegistry(o)) ts('REGID', i.text, null, 'StudyIdentifier (registry)'); if (isSponsor(o)) ts('SPONSOR', o.name, null, 'Organization (sponsor)'); });
   const dur = M.tl && M.tl.plannedDuration; if (dur && dur.quantity) ts('LENGTH', 'P' + dur.quantity.value + 'D', null, 'ScheduleTimeline.plannedDuration');
   (design.therapeuticAreas || []).forEach(t => ts('THERAREA', t.decode, null, 'StudyDesign.therapeuticAreas'));
   (design.indications || []).forEach(i => ts('INDIC', i.name, null, 'StudyDesign.indications'));
@@ -832,7 +836,12 @@ Engine.prototype.generate = function (M, sel, opts) {
     codelists: codelists.length, terms: terms.length, forms: forms.length, questions: questions.length, crfCodelists: crfCls.size, soaRows: soa.length,
     TS: TS.length, crossMatched: (report.crf_specialization_user_selected_cross_match || []).length,
     bcWithoutCrf: (report.bc_without_crf_specialization || []).length, surrogates: (report.bc_surrogates_excluded || []).length };
-  return { define, crf, td, report, summary, extended: ext, studyid };
+  // ---- spec header for the P21 import workbooks (Define / FormSpec tab)
+  const offT = titleOf('C207616', /official/i), briefT = titleOf('C207615', /brief/i);
+  const docLang = (((M.study.documentedBy || [])[0] || {}).language || {}).code;
+  const studyMeta = { StudyName: M.study.name || studyid, StudyDescription: (offT || briefT || {}).text || M.study.description || M.study.label || '',
+    ProtocolName: studyid, Language: docLang && /^[a-z]{2}$/i.test(docLang) ? docLang.toLowerCase() : 'en' };
+  return { define, crf, td, report, summary, extended: ext, studyid, studyMeta };
 };
 
 /* ---------------------------------------------------------------- minimal XLSX writer (no deps) */
@@ -886,9 +895,12 @@ const objSheet = (name, objs, cols) => { cols = cols || (objs.length ? Object.ke
   return { name, header: cols, rows: objs.map(o => cols.map(c => o[c])) }; };
 const ca = (o, k) => (o.customAttribute || {})[k];
 const reportSheet = (report) => { const rows = []; for (const k in report) report[k].forEach(v => rows.push([k, typeof v === 'object' ? JSON.stringify(v) : v])); return { name: 'Generation report', header: ['Finding type', 'Detail'], rows }; };
+/* first tab of a P21 import workbook: Attribute / Value (Source Spec(s) left blank) */
+const specSheet = (name, m, order) => ({ name, header: ['Attribute', 'Value'], rows: order.map(k => [k, m[k] || '']) });
 Engine.prototype.defineWorkbook = function (G) {
   const d = G.define;
   return buildXlsx([
+    specSheet('Define', G.studyMeta || {}, ['StudyName', 'StudyDescription', 'ProtocolName', 'Source Spec(s)', 'Language']),
     { name: 'Datasets', header: ['Dataset', 'Label', 'Class', 'Structure', 'Key Variables', 'Repeating', 'Reference Data', 'Source internalId', 'Specializations'],
       rows: d.datasets.map(x => [x.dataset, x.label, x.class, x.structure, x.keyVariables, x.repeating, x.referenceData, ca(x, 'sourceInternalId'), (ca(x, 'specializations') || []).join(', ')]) },
     { name: 'Variables', header: ['Order', 'Dataset', 'Variable', 'Label', 'Data Type', 'Length', 'Core', 'Codelist', 'Origin', 'Role', 'Inclusion', 'Source internalId', 'Specializations'],
@@ -903,7 +915,7 @@ Engine.prototype.defineWorkbook = function (G) {
 };
 Engine.prototype.formWorkbook = function (G) {
   const c = G.crf;
-  return buildXlsx([objSheet('Events', c.events), objSheet('Forms', c.forms), objSheet('ScheduleOfActivities', c.scheduleOfActivities),
+  return buildXlsx([specSheet('FormSpec', G.studyMeta || {}, ['StudyName', 'StudyDescription', 'ProtocolName', 'Language', 'Source Spec(s)']), objSheet('Events', c.events), objSheet('Forms', c.forms), objSheet('ScheduleOfActivities', c.scheduleOfActivities),
     objSheet('Questions', c.questions), objSheet('Codelists', c.codelists), objSheet('Terms', c.terms), reportSheet(G.report)]);
 };
 Engine.prototype.tsWorkbook = function (G) {
