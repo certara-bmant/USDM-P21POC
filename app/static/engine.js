@@ -636,10 +636,12 @@ Engine.prototype.defineWorkbook = function (G) {
       rows: d.variables.map(v => [v.order ? +v.order : '', v.dataset, v.variable, v.label, v.dataType, v.length, v.core, v.codelist, v.origin, v.role, ca(v, 'inclusion'), ca(v, 'sourceInternalId'), (ca(v, 'specializations') || []).join(', ')]) },
     { name: 'ValueLevel', header: ['Order', 'Dataset', 'Variable', 'Where Clause', 'Label', 'Data Type', 'Length', 'Significant Digits', 'Mandatory', 'Assigned Value', 'Codelist', 'Origin', 'Source', 'BC', 'Specialization'],
       rows: d.value_level.map(v => [+v.order, v.dataset, v.variable, v.whereClause, v.label, v.dataType, v.length, v.significantDigits, v.mandatory, v.assignedValue, v.codelist, v.origin, v.source, ca(v, 'bcId'), ca(v, 'specialization')]) },
-    { name: 'Codelists', header: ['ID', 'Name', 'NCI Code', 'Data Type', 'Extensible', 'Parent Codelist', 'Subset Rule', 'Source internalId', 'Used By'],
-      rows: d.codelists.map(c => [c.id, c.name, c.nciCode, c.dataType, c.extensible, ca(c, 'parentCodelist'), ca(c, 'subsetRule'), ca(c, 'sourceInternalId'), (ca(c, 'usedBy') || []).join(', ')]) },
-    { name: 'Terms', header: ['Codelist', 'Order', 'Term', 'Decoded Value', 'NCI Code', 'Sponsor Extended', 'Source internalId'],
-      rows: d.terms.map(t => [t.codelist, +t.order, t.term, t.decodedValue, t.nciCode, ca(t, 'extended') ? 'Yes' : 'No', ca(t, 'sourceInternalId')]) },
+    // P21 xlsx import: codelists and terms in ONE 'Codelists' tab - one row per term, codelist attributes repeated;
+    // a codelist without terms (deferred) gets a single row with the term columns empty
+    { name: 'Codelists', header: ['ID', 'Name', 'NCI Codelist Code', 'Data Type', 'Order', 'Term', 'NCI Term Code', 'Decoded Value'],
+      rows: (() => { const by = {}; d.terms.forEach(t => (by[t.codelist] = by[t.codelist] || []).push(t));
+        return d.codelists.flatMap(c => { const base = [c.id, c.name, c.nciCode || '', c.dataType || 'text'], ts = by[c.id] || [];
+          return ts.length ? ts.map(t => [...base, +t.order, t.term, t.nciCode || '', t.decodedValue || '']) : [[...base, '', '', '', '']]; }); })() },
     reportSheet(G.report)]);
 };
 Engine.prototype.formWorkbook = function (G) {
