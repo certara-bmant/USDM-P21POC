@@ -748,7 +748,7 @@ Engine.prototype.generate = function (M, sel, opts) {
           const vals = r.value_list ? r.value_list.split(';') : [r.prepopulated_term];
           const disp = r.value_list_display ? r.value_list_display.split(';') : vals.map(() => '');
           vals.forEach((val, j) => { const t = E.termBy[r.codelist_submission_value + '|' + val];
-            crfTerms.push({ Codelist: cl, Order: j + 1, Term: val, DecodedValue: disp[j] || (t ? t.decodedValue : val), NCICode: t ? t.nciCode : '' }); });
+            crfTerms.push({ Order: j + 1, Codelist: cl, 'Display Term': disp[j] || (t && t.decodedValue) || val, 'Recommended Term': val, 'NCI Term Code': t ? t.nciCode : '' }); });
         }
       }
       questions.push({ Form: formId, Section: sectionPrefix + c, Order: orderRef.n, ID: r.crf_item, SourceVariableName: r.variable_name, QuestionText: r.question_text, Prompt: r.prompt,
@@ -776,7 +776,8 @@ Engine.prototype.generate = function (M, sel, opts) {
         const cl = q.codelist || '';
         if (cl && !crfCls.has(cl) && this.lib.codelistById[cl]) {
           const lc = this.lib.codelistById[cl]; crfCls.set(cl, { ID: cl, Name: lc.name || cl, DataType: lc.dataType || 'text', Terminology: lc.recommendedCodelist || '', Source: 'Library' });
-          (this.lib.termsByCl[cl] || []).forEach(t => crfTerms.push({ Codelist: cl, Order: t.order, Term: t.term, DecodedValue: t.recommendedTerm || t.term, NCICode: '' }));
+          (this.lib.termsByCl[cl] || []).forEach(t => { const ct = E.termBy[(lc.recommendedCodelist || '') + '|' + (t.recommendedTerm || t.term)];
+            crfTerms.push({ Order: t.order, Codelist: cl, 'Display Term': t.term, 'Recommended Term': t.recommendedTerm || t.term, 'NCI Term Code': ct ? ct.nciCode : '' }); });
         }
         questions.push({ Form: fid, Section: q.section || '', Order: orderRef.n, ID: q.id, SourceVariableName: q.id, QuestionText: q.questionText || '', Prompt: '',
           Description: q.description || '', DataType: q.type || '', Length: q.length || '', Digits: q.digits || '', Mandatory: q.isMandatory ? 'Yes' : 'No', Codelist: cl,
