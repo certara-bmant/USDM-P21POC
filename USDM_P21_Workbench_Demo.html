@@ -926,10 +926,21 @@ Engine.prototype.defineWorkbook = function (G) {
           return ts.length ? ts.map(t => [...base, +t.order, t.term, t.nciCode || '', t.decodedValue || '']) : [[...base, '', '', '', '']]; }); })() },
     reportSheet(G.report)]);
 };
+/* Questions tab in the P21 form-spec import layout. Fields with no P21 column (default value, hidden, control type,
+   source, BC, specializations) are folded into Developer Notes so nothing is lost; the JSON export keeps them separately. */
+const Q_COLS = [['Form', 'Form'], ['Section', 'Section'], ['Order', 'Order'], ['ID', 'ID'], ['Source Variable Name', 'SourceVariableName'],
+  ['Question Text', 'QuestionText'], ['Prompt', 'Prompt'], ['Description', 'Description'], ['Data Type', 'DataType'], ['Core', 'Core'], ['Length', 'Length'],
+  ['Digits', 'Digits'], ['Mandatory', 'Mandatory'], ['Codelist', 'Codelist'], ['Measurement Units', 'MeasurementUnits'], ['Method', 'Method'],
+  ['Condition', 'Condition'], ['Completion Instructions', 'CompletionInstructions'], ['Implementation Notes', 'ImplementationNotes'],
+  ['Mapping Instructions', 'MappingInstructions'], ['SDTM Target', 'SDTMTarget'], ['Reason Not Mapped', 'ReasonNotMapped'], ['Developer Notes', null]];
+const qNotes = q => [q.DeveloperNotes, q.DefaultValue ? 'Default: ' + q.DefaultValue : '', q.Hidden === 'Yes' ? 'Hidden' : '', q.ControlType ? 'Control: ' + q.ControlType : '',
+  q.Source ? 'Source: ' + q.Source + (q.CRFSpecialization ? ' ' + q.CRFSpecialization : '') : '', q.BC ? 'BC: ' + q.BC : '',
+  q.SDTMSpecialization ? 'SDTM spec: ' + q.SDTMSpecialization : ''].filter(Boolean).join(' | ');
+const questionsSheet = qs => ({ name: 'Questions', header: Q_COLS.map(c => c[0]), rows: qs.map(q => Q_COLS.map(([, k]) => k ? (q[k] == null ? '' : q[k]) : qNotes(q))) });
 Engine.prototype.formWorkbook = function (G) {
   const c = G.crf;
   return buildXlsx([specSheet('FormSpec', G.studyMeta || {}, ['StudyName', 'StudyDescription', 'ProtocolName', 'Language', 'Source Spec(s)']), objSheet('Events', c.events), objSheet('Forms', c.forms), objSheet('Sections', c.sections, ['Form', 'Order', 'ID', 'Name', 'Mandatory', 'Repeating', 'Condition', 'Developer Notes']), objSheet('ScheduleOfActivities', c.scheduleOfActivities),
-    objSheet('Questions', c.questions), objSheet('Codelists', c.codelists), objSheet('Terms', c.terms), reportSheet(G.report)]);
+    questionsSheet(c.questions), objSheet('Codelists', c.codelists), objSheet('Terms', c.terms), reportSheet(G.report)]);
 };
 Engine.prototype.tsWorkbook = function (G) {
   return buildXlsx([objSheet('TS', G.td.TS, ['STUDYID', 'DOMAIN', 'TSSEQ', 'TSPARMCD', 'TSPARM', 'TSVAL', 'TSVALCD', 'TSVCDREF', 'TSVCDVER', '_usdm']),
