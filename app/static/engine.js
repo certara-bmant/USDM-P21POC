@@ -472,6 +472,8 @@ Engine.prototype.generate = function (M, sel, opts) {
     this.crfItems[c].forEach(r0 => {
       orderRef.n++; const rc = this.reconcileItem(s, c, r0); const r = rc.r, note = rc.note, base = rc.base;
       overrides.push(...rc.overrides); if (rc.review) review.push(r.crf_item);
+      if (questions.some(q => q.Form === formId && q.Section === sectionId && q.ID === r.crf_item)) {   // shared item (e.g. VSDAT) already on this section
+        orderRef.n--; rep('crf_shared_items_collapsed', { form: formId, item: r.crf_item, bc: bc.name, crfSpecialization: c }); return; }
       let cl = '';
       if (r.value_list || r.prepopulated_term) {
         cl = `${D.crf[c].d}_${base}_${r.codelist_submission_value || r.variable_name}`;
